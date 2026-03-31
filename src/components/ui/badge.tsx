@@ -4,14 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
+        default:
+          "border-black/18 bg-white/72 text-black/82 backdrop-blur-sm hover:border-black/28 hover:bg-white/88",
+        secondary:
+          "border-black/14 bg-zinc-100/75 text-black/68 backdrop-blur-sm hover:bg-zinc-200/70",
+        destructive:
+          "border-black/22 bg-black/12 text-black/86 backdrop-blur-sm hover:bg-black/20",
+        outline:
+          "border-black/24 text-black/75 bg-transparent hover:bg-black/5",
+        success:
+          "border-black/18 bg-white/70 text-black/78 backdrop-blur-sm hover:bg-zinc-100/70",
+        warning:
+          "border-black/20 bg-zinc-100/75 text-black/74 backdrop-blur-sm hover:bg-zinc-200/70",
       },
     },
     defaultVariants: {

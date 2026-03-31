@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# API secrets (use server/.env.example for Atlas template)
+server/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# RISE WITH MEDIA - Member Tracking & Management
 
-TODO: Document your project here
+A comprehensive management system for employees and interns.

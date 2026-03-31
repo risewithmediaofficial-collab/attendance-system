@@ -1,278 +1,725 @@
-import { useState, useEffect, useMemo } from "react";
-import { storage, AttendanceRecord, generateId, calculateHours, getStatus, getDayName, isHoliday, getHolidayReason } from "@/lib/storage";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { format } from "date-fns";
+import {
+  CalendarDays,
+  CalendarCheck,
+  Clock,
+  Search,
+  AlertTriangle,
+  Pencil,
+  Trash2,
+  UserCheck,
+  CheckCircle2,
+  XCircle,
+  History,
+} from "lucide-react";
+import { storage, type AttendanceRecord, type Member, calculateHours, getStatus, getDayName, isHoliday as isHolidayFn, getHolidayReason } from "@/lib/storage";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Trash2, Pencil, CalendarCheck, Search, AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
-import { motion } from "framer-motion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { Calendar } from "@/components/ui/calendar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Pie, PieChart, Cell } from "recharts";
+
+type AttendanceCell = {
+  member: Member;
+  status: "Full Day" | "Half Day" | "Short" | "Absent" | "Holiday";
+  record?: AttendanceRecord;
+};
+
+function toIsoDate(d: Date) {
+  return format(d, "yyyy-MM-dd");
+}
+
+function dateIsPast(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
+  return d.getTime() < today.getTime();
+}
+
+const statusClass: Record<AttendanceCell["status"], string> = {
+  "Full Day": "badge-pill badge-full-day",
+  "Half Day": "badge-pill badge-half-day",
+  Short: "badge-pill badge-short",
+  Absent: "badge-pill badge-absent",
+  Holiday: "badge-pill badge-holiday",
+};
+
+function statusOrder(s: AttendanceCell["status"]) {
+  switch (s) {
+    case "Holiday":
+      return 5;
+    case "Full Day":
+      return 4;
+    case "Half Day":
+      return 3;
+    case "Short":
+      return 2;
+    case "Absent":
+      return 1;
+  }
+}
 
 export default function Attendance() {
-  const [records, setRecords] = useState<AttendanceRecord[]>(storage.getAttendance());
+  const role = storage.getCurrentRole();
+  const me = storage.getCurrentMember();
+
   const members = storage.getMembers();
+  const attendance = storage.getAttendance();
+  const holidays = storage.getHolidays();
+
+  const [records, setRecords] = useState<AttendanceRecord[]>(attendance);
+
+  useEffect(() => {
+    storage.setAttendance(records);
+  }, [records]);
+
+  const today = toIsoDate(new Date());
+  const [selectedDate, setSelectedDate] = useState<string>(today);
+  const [calendarMemberId, setCalendarMemberId] = useState<string>(() => me?.id ?? members[0]?.id ?? "");
+
+  const selectableMembers = role === "Admin" ? members : me ? [me] : [];
+
+  useEffect(() => {
+    if (role !== "Admin" && me) setCalendarMemberId(me.id);
+  }, [role, me]);
+
+  const holidayOnSelected = isHolidayFn(selectedDate);
+
+  const tableMembers = role === "Admin" ? selectableMembers : selectableMembers;
+
+  const cellsForSelectedDate: AttendanceCell[] = useMemo(() => {
+    const list: AttendanceCell[] = [];
+    for (const m of tableMembers) {
+      if (isHolidayFn(selectedDate)) {
+        list.push({ member: m, status: "Holiday" });
+        continue;
+      }
+      const record = records.find((r) => r.date === selectedDate && r.memberId === m.id);
+      if (!record) {
+        list.push({ member: m, status: "Absent" });
+        continue;
+      }
+      list.push({ member: m, status: record.status, record });
+    }
+    return list.sort((a, b) => statusOrder(b.status) - statusOrder(a.status));
+  }, [tableMembers, records, selectedDate]);
+
+  // Calendar modifiers for the "member being visualized"
+  const calendarMemberAttendanceStatus = useMemo(() => {
+    const memberId = calendarMemberId;
+    const map = new Map<string, AttendanceCell["status"]>();
+    for (const d of getLast90Days(selectedDate)) {
+      if (isHolidayFn(d)) {
+        map.set(d, "Holiday");
+        continue;
+      }
+      const rec = records.find((r) => r.memberId === memberId && r.date === d);
+      if (!rec) map.set(d, "Absent");
+      else map.set(d, rec.status);
+    }
+    return map;
+  }, [calendarMemberId, records, selectedDate]);
+
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [memberId, setMemberId] = useState("");
+  const [formMemberId, setFormMemberId] = useState<string>("");
   const [loginTime, setLoginTime] = useState("09:00");
   const [logoutTime, setLogoutTime] = useState("18:00");
 
-  const [filterDate, setFilterDate] = useState("");
-  const [filterMember, setFilterMember] = useState("all");
+  const initForm = (memberId: string, record?: AttendanceRecord) => {
+    setEditId(record?.id ?? null);
+    setFormMemberId(memberId);
+    setLoginTime(record?.loginTime ?? "09:00");
+    setLogoutTime(record?.logoutTime ?? "18:00");
+  };
+
+  const canAddOrEdit = useMemo(() => {
+    if (holidayOnSelected) return false;
+    if (!storage.canEditAttendanceDate(selectedDate)) return false;
+    if (role === "Admin") return true;
+    if (role === "Employee" || role === "Intern") {
+      return me ? formMemberId === me.id : true;
+    }
+    return false;
+  }, [holidayOnSelected, selectedDate, role, me, formMemberId]);
+
   const [search, setSearch] = useState("");
 
-  useEffect(() => { storage.setAttendance(records); }, [records]);
+  const filteredCells = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cellsForSelectedDate;
+    return cellsForSelectedDate.filter((c) => c.member.name.toLowerCase().includes(q));
+  }, [cellsForSelectedDate, search]);
 
-  const holidayOnDate = isHoliday(date);
+  const analytics = useMemo(() => {
+    // Last 14 days present% trend.
+    const last14: string[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      last14.push(toIsoDate(d));
+    }
+    const memberIds = role === "Admin" ? selectableMembers.map((m) => m.id) : me ? [me.id] : [];
+    const workDays = last14.filter((d) => !isHolidayFn(d));
+    const trend = last14.map((d) => {
+      if (isHolidayFn(d)) return { day: format(new Date(d), "EEE"), presentPct: 0 };
+      const present = memberIds.filter((id) => 
+        records.some((r) => r.memberId === id && r.date === d && r.approvalStatus !== "Rejected")
+      ).length;
+      const pct = memberIds.length > 0 ? (present / memberIds.length) * 100 : 0;
+      return { day: format(new Date(d), "EEE"), presentPct: +pct.toFixed(1) };
+    });
+    // Status distribution
+    const counts: Record<AttendanceCell["status"], number> = { "Full Day": 0, "Half Day": 0, Short: 0, Absent: 0, Holiday: 0 };
+    for (const d of last14) {
+      if (isHolidayFn(d)) continue;
+      for (const id of memberIds) {
+        const rec = records.find((r) => r.memberId === id && r.date === d && r.approvalStatus !== "Rejected");
+        if (!rec) counts.Absent += 1;
+        else counts[rec.status] += 1;
+      }
+    }
+    const pieData = [
+      { name: "Full Day", value: counts["Full Day"], color: "hsl(0, 0%, 18%)" },
+      { name: "Half Day", value: counts["Half Day"], color: "hsl(0, 0%, 32%)" },
+      { name: "Short", value: counts.Short, color: "hsl(0, 0%, 45%)" },
+      { name: "Absent", value: counts.Absent, color: "hsl(0, 0%, 60%)" },
+    ].filter((x) => x.value > 0);
 
-  const isDuplicate = (d: string, mId: string, excludeId?: string) =>
-    records.some(r => r.date === d && r.memberId === mId && r.id !== excludeId);
+    return { trend, workDaysCount: workDays.length, pieData };
+  }, [records, role, selectableMembers, me]);
 
   const openAdd = () => {
+    if (holidayOnSelected) return;
+    if (role !== "Admin" && me) initForm(me.id);
+    else initForm(formMemberId || selectableMembers[0]?.id || "");
     setEditId(null);
-    setDate(format(new Date(), "yyyy-MM-dd"));
-    setMemberId(members[0]?.id || "");
-    setLoginTime("09:00");
-    setLogoutTime("18:00");
     setOpen(true);
   };
 
-  const openEdit = (r: AttendanceRecord) => {
-    setEditId(r.id);
-    setDate(r.date);
-    setMemberId(r.memberId);
-    setLoginTime(r.loginTime);
-    setLogoutTime(r.logoutTime);
+  const openEditRecord = (cell: AttendanceCell) => {
+    if (!cell.record) return;
+    if (role !== "Admin" && me && cell.member.id !== me.id) return;
+    if (holidayOnSelected) return;
+    if (!storage.canEditAttendanceDate(selectedDate)) return;
+    initForm(cell.member.id, cell.record);
     setOpen(true);
+  };
+
+  const isDuplicate = (dateStr: string, memberId: string, excludeId?: string) => {
+    return records.some((r) => r.date === dateStr && r.memberId === memberId && r.id !== excludeId);
   };
 
   const save = () => {
-    if (!memberId || !date || !loginTime || !logoutTime) return;
-    if (isHoliday(date)) return;
-    if (isDuplicate(date, memberId, editId || undefined)) return;
+    if (!formMemberId || !selectedDate) return;
+    if (holidayOnSelected) return;
+    if (!storage.canEditAttendanceDate(selectedDate) && role !== "Admin") return;
+    if (!loginTime || !logoutTime) return;
+    if (isDuplicate(selectedDate, formMemberId, editId ?? undefined)) {
+      toast.error("Attendance already exists for this member on this date.");
+      return;
+    }
 
     const hours = calculateHours(loginTime, logoutTime);
     const status = getStatus(hours);
+    const approvalStatus = role === "Admin" ? "Approved" : "Pending";
+    const submittedAt = Date.now();
 
     if (editId) {
-      setRecords(prev => prev.map(r => r.id === editId ? { ...r, date, memberId, loginTime, logoutTime, hours, status } : r));
-      toast.success("Attendance updated");
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === editId 
+            ? { ...r, date: selectedDate, memberId: formMemberId, loginTime, logoutTime, hours, status, approvalStatus, submittedAt } 
+            : r,
+        ),
+      );
+      toast.success(role === "Admin" ? "Attendance updated" : "Attendance submitted for approval");
     } else {
-      setRecords(prev => [...prev, { id: generateId(), date, memberId, loginTime, logoutTime, hours, status }]);
-      toast.success("Attendance recorded");
+      const next: AttendanceRecord = { 
+        id: crypto.randomUUID(), 
+        date: selectedDate, 
+        memberId: formMemberId, 
+        loginTime, 
+        logoutTime, 
+        hours, 
+        status, 
+        approvalStatus, 
+        submittedAt 
+      };
+      setRecords((prev) => [...prev, next]);
+      toast.success(role === "Admin" ? "Attendance recorded" : "Attendance submitted for approval");
     }
+
     setOpen(false);
   };
 
+  const handleApprove = (id: string) => {
+    setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, approvalStatus: "Approved" } : r)));
+    toast.success("Attendance approved");
+  };
+
+  const handleReject = (id: string) => {
+    setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, approvalStatus: "Rejected" } : r)));
+    toast.error("Attendance rejected");
+  };
+
   const confirmDelete = () => {
-    if (deleteId) {
-      setRecords(prev => prev.filter(r => r.id !== deleteId));
-      toast.success("Record deleted");
-      setDeleteId(null);
-    }
+    if (!deleteId) return;
+    setRecords((prev) => prev.filter((r) => r.id !== deleteId));
+    setDeleteId(null);
+    toast.success("Attendance record deleted");
   };
 
-  const filtered = useMemo(() => {
-    let list = [...records];
-    if (filterDate) list = list.filter(r => r.date === filterDate);
-    if (filterMember && filterMember !== "all") list = list.filter(r => r.memberId === filterMember);
-    if (search) {
-      const s = search.toLowerCase();
-      list = list.filter(r => {
-        const name = members.find(m => m.id === r.memberId)?.name || "";
-        return name.toLowerCase().includes(s);
-      });
-    }
-    return list.sort((a, b) => b.date.localeCompare(a.date));
-  }, [records, filterDate, filterMember, search, members]);
-
-  const getMemberName = (id: string) => members.find(m => m.id === id)?.name || "Unknown";
-
-  const statusConfig: Record<string, { className: string }> = {
-    "Full Day": { className: "bg-success/15 text-success border-success/20" },
-    "Half Day": { className: "bg-warning/15 text-warning border-warning/20" },
-    "Short": { className: "bg-destructive/15 text-destructive border-destructive/20" },
-  };
+  const summaryBadge = (() => {
+    if (holidayOnSelected) return <Badge className={statusClass.Holiday}>Holiday</Badge>;
+    const selfCell = role === "Admin" ? undefined : cellsForSelectedDate.find((c) => c.member.id === me?.id);
+    const status = selfCell?.status ?? "Absent";
+    return <Badge className={statusClass[status] as string}>{status}</Badge>;
+  })();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-6 p-6">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold">Attendance</h2>
-          <p className="text-sm text-muted-foreground mt-1">{records.length} total entries</p>
+          <h2 className="text-3xl font-bold mono-title">
+            Attendance
+          </h2>
+          <p className="text-sm mt-1 text-muted-foreground">
+            {role === "Admin" ? "Calendar + attendance table for your team." : "Your attendance calendar and daily status."}
+          </p>
         </div>
-        <Button onClick={openAdd} disabled={members.length === 0} className="rounded-xl shadow-lg shadow-primary/20">
-          <Plus className="mr-1.5 h-4 w-4" />Add Entry
-        </Button>
-      </div>
-
-      {/* Filters */}
-      <Card className="glass-card rounded-2xl">
-        <CardContent className="p-4 flex gap-3 flex-wrap items-center">
-          <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search members..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9 h-10 rounded-xl bg-muted/50 border-0"
-            />
-          </div>
-          <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="w-44 h-10 rounded-xl bg-muted/50 border-0" />
-          <Select value={filterMember} onValueChange={setFilterMember}>
-            <SelectTrigger className="w-44 h-10 rounded-xl bg-muted/50 border-0"><SelectValue placeholder="All Members" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Members</SelectItem>
-              {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {(filterDate || filterMember !== "all" || search) && (
-            <Button variant="ghost" size="sm" onClick={() => { setFilterDate(""); setFilterMember("all"); setSearch(""); }} className="rounded-xl text-xs">
-              Clear All
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <Card className="glass-card rounded-2xl overflow-hidden">
-          <div className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider">Date</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider">Day</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider">Member</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider">Login</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider">Logout</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider">Hours</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wider">Status</TableHead>
-                  <TableHead className="w-24 text-right font-semibold text-xs uppercase tracking-wider">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-16">
-                      <CalendarCheck className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-                      <p className="text-sm text-muted-foreground">No attendance records found</p>
-                    </TableCell>
-                  </TableRow>
-                )}
-                {filtered.map((r, i) => (
-                  <TableRow key={r.id} className={cn("hover:bg-muted/30 transition-colors", i % 2 === 0 && "bg-muted/10")}>
-                    <TableCell className="text-sm">{r.date}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{getDayName(r.date)}</TableCell>
-                    <TableCell className="font-medium text-sm">{getMemberName(r.memberId)}</TableCell>
-                    <TableCell className="text-sm font-mono">{r.loginTime}</TableCell>
-                    <TableCell className="text-sm font-mono">{r.logoutTime}</TableCell>
-                    <TableCell className="text-sm font-semibold">{r.hours}h</TableCell>
-                    <TableCell>
-                      <span className={cn("inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border", statusConfig[r.status]?.className)}>
-                        {r.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-0.5">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => openEdit(r)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:text-destructive" onClick={() => setDeleteId(r.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+        <div className="flex gap-3 items-center flex-wrap">
+          {summaryBadge}
+          <Button
+            onClick={() => {
+              if (role !== "Admin" && me) initForm(me.id);
+              else initForm(selectableMembers[0]?.id || "");
+              openAdd();
+            }}
+            disabled={holidayOnSelected || !storage.canEditAttendanceDate(selectedDate) || (role !== "Admin" && !me)}
+          >
+            <CalendarCheck className="mr-2 h-4 w-4" />
+            {cellsForSelectedDate.some((c) => c.record) ? "Add / Update" : "Add Entry"}
+          </Button>
+        </div>
       </motion.div>
 
-      {/* Add/Edit Dialog */}
+      <Tabs defaultValue="calendar">
+        <TabsList
+          className="p-1 rounded-xl"
+          style={{ background: "rgba(255,255,255,0.55)", border: "1px solid rgba(0,0,0,0.12)", backdropFilter: "blur(16px)" }}
+        >
+          <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">Calendar</TabsTrigger>
+          <TabsTrigger value="table" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">Table</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="calendar" className="space-y-6">
+          <Card className="glass-card rounded-2xl border-white/20 shadow-2xl">
+            <CardHeader className="p-6 pb-4">
+              <CardTitle className="text-lg">Attendance Calendar</CardTitle>
+              <div className="mt-2 flex items-center gap-3 flex-wrap">
+                {role === "Admin" && (
+                  <Select value={calendarMemberId} onValueChange={setCalendarMemberId}>
+                    <SelectTrigger className="w-64 rounded-full">
+                      <SelectValue placeholder="Select member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name} ({m.role ?? "Intern"})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Badge className="bg-white/10 border-white/20 text-foreground px-3 py-1 rounded-full">
+                  {role === "Admin" ? "Team view" : "Personal view"}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate ? new Date(selectedDate + "T00:00:00") : undefined}
+                    onSelect={(d) => {
+                      if (!d) return;
+                      setSelectedDate(toIsoDate(d));
+                    }}
+                    modifiers={{
+                      holiday: (d) => calendarMemberAttendanceStatus.get(toIsoDate(d)) === "Holiday",
+                      full: (d) => calendarMemberAttendanceStatus.get(toIsoDate(d)) === "Full Day",
+                      half: (d) => calendarMemberAttendanceStatus.get(toIsoDate(d)) === "Half Day",
+                      short: (d) => calendarMemberAttendanceStatus.get(toIsoDate(d)) === "Short",
+                      absent: (d) => calendarMemberAttendanceStatus.get(toIsoDate(d)) === "Absent",
+                    }}
+                    modifiersClassNames={{
+                      holiday: "bg-black/8 text-black/70 border border-black/18",
+                      full: "bg-black/16 text-black/90 border border-black/24",
+                      half: "bg-black/12 text-black/82 border border-black/22",
+                      short: "bg-black/10 text-black/78 border border-black/20",
+                      absent: "bg-black/6 text-black/62 border border-black/14",
+                      // Keep selectable days clickable
+                      day_today: "ring-2 ring-primary/40",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Legend</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(["Full Day", "Half Day", "Short", "Absent", "Holiday"] as AttendanceCell["status"][]).map((s) => (
+                          <Badge key={s} className={statusClass[s]}>{s}</Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Card className="glass-card border-white/20 shadow-xl rounded-2xl">
+                      <CardContent className="p-4">
+                        <p className="text-sm font-semibold">Selected: {selectedDate}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{getDayName(selectedDate)}</p>
+                        {holidayOnSelected && (
+                          <div className="mt-3 flex items-start gap-2 px-3 py-2 bg-black/8 text-foreground rounded-xl text-sm">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            Holiday: {getHolidayReason(selectedDate) ?? "—"}
+                          </div>
+                        )}
+                        {!holidayOnSelected && (
+                          <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-white/5 rounded-xl text-sm">
+                            <Clock className="h-4 w-4 text-primary" />
+                            {role === "Admin" ? "Pick a member to see their status in calendar." : "Use the Table tab to update your entry."}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="table" className="space-y-6">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by member..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 w-72 rounded-full border-0"
+                />
+              </div>
+              <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-44 rounded-full input-glass border-0 h-11" />
+            </div>
+            <div className="flex gap-2 items-center flex-wrap">
+              {role === "Admin" ? (
+                <Badge className="bg-white/10 border-white/20 text-foreground px-3 py-1 rounded-full">Editing disabled on Holidays</Badge>
+              ) : (
+                <Badge className="bg-white/10 border-white/20 text-foreground px-3 py-1 rounded-full">Your personal attendance</Badge>
+              )}
+            </div>
+          </motion.div>
+
+          <Card className="glass-card rounded-2xl overflow-hidden border-white/20 shadow-2xl">
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-white/5 hover:bg-white/5 border-b border-white/10">
+                    <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Member</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Status</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Approval</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Login/Logout</TableHead>
+                    <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Time Recorded</TableHead>
+                    <TableHead className="w-32 text-right font-bold text-xs uppercase tracking-widest text-foreground/80">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCells.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-16 text-muted-foreground">
+                        No results
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {filteredCells.map((cell) => {
+                    const canEditThis =
+                      role === "Admin"
+                        ? storage.canEditAttendanceDate(selectedDate) && !isHolidayFn(selectedDate)
+                        : storage.canEditAttendanceDate(selectedDate) && !isHolidayFn(selectedDate) && me && cell.member.id === me.id;
+
+                    return (
+                      <motion.tr
+                        key={cell.member.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="border-b border-white/5 group"
+                      >
+                        <TableCell className="font-semibold">{cell.member.name}</TableCell>
+                        <TableCell>
+                          <Badge className={statusClass[cell.status]}>{cell.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {cell.record ? (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "rounded-full px-2 py-0 h-6 text-[10px] font-bold uppercase tracking-tighter transition-all",
+                                cell.record.approvalStatus === "Approved" && "bg-black/14 text-black/85 border-black/22",
+                                cell.record.approvalStatus === "Pending" && "bg-black/10 text-black/75 border-black/18 animate-pulse",
+                                cell.record.approvalStatus === "Rejected" && "bg-black/8 text-black/65 border-black/16",
+                                !cell.record.approvalStatus && "bg-black/14 text-black/85 border-black/22" // default approved
+                              )}
+                            >
+                              {cell.record.approvalStatus ?? "Approved"}
+                            </Badge>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {cell.record ? `${cell.record.loginTime} - ${cell.record.logoutTime} (${cell.record.hours}h)` : "—"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground italic">
+                          {cell.record?.submittedAt ? format(new Date(cell.record.submittedAt), "HH:mm:ss") : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1 items-center">
+                            {role === "Admin" && cell.record && cell.record.approvalStatus === "Pending" && (
+                              <div className="flex gap-1 mr-1 border-r pr-2 border-white/10">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 rounded-full bg-black/12 text-black/80 hover:bg-black hover:text-white transition-all duration-200"
+                                  onClick={() => handleApprove(cell.record!.id)}
+                                  title="Approve"
+                                >
+                                  <CheckCircle2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 rounded-full bg-black/10 text-black/70 hover:bg-black hover:text-white transition-all duration-200"
+                                  onClick={() => handleReject(cell.record!.id)}
+                                  title="Reject"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                            {canEditThis && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg hover:bg-white/20 hover:text-primary transition-all"
+                                  onClick={() => openEditRecord(cell)}
+                                  disabled={!cell.record}
+                                  title={cell.record ? "Edit" : "Add (use top button)"}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                {cell.record && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg hover:bg-black/12 hover:text-black transition-all"
+                                    onClick={() => setDeleteId(cell.record!.id)}
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </motion.tr>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="glass-card rounded-2xl border-white/20 shadow-2xl">
+              <CardHeader className="p-6 pb-4">
+                <CardTitle className="text-lg">Attendance Analytics</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Present rate over the last 14 days.</p>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.trend}>
+                      <XAxis dataKey="day" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: "1px solid rgba(255, 255, 255, 0.2)",
+                          background: "rgba(255, 255, 255, 0.1)",
+                          backdropFilter: "blur(10px)",
+                          fontSize: 12,
+                          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+                        }}
+                        formatter={(value: unknown) => `${value}%`}
+                      />
+                      <Bar dataKey="presentPct" fill="url(#attBarGrad)" radius={[8, 8, 0, 0]} animationDuration={700} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card rounded-2xl border-white/20 shadow-2xl">
+              <CardHeader className="p-6 pb-4">
+                <CardTitle className="text-lg">Status Distribution</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Full/Half/Short/Absent breakdown.</p>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <div className="h-72 flex items-center justify-center">
+                  {analytics.pieData.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No data yet</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={analytics.pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" strokeWidth={0} animationDuration={700}>
+                          {analytics.pieData.map((entry, idx) => (
+                            <Cell key={idx} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Add/Edit dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>{editId ? "Edit" : "Add"} Attendance</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editId ? "Edit Attendance" : "Add Attendance"}</DialogTitle>
+          </DialogHeader>
+
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</Label>
-                <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-10 rounded-xl" />
+                <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="h-10 rounded-xl" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Day</Label>
-                <Input value={date ? getDayName(date) : ""} readOnly className="h-10 rounded-xl bg-muted/50" />
+                <Input value={getDayName(selectedDate)} readOnly className="h-10 rounded-xl bg-muted/50" />
               </div>
             </div>
 
-            {holidayOnDate && (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-warning/10 text-warning rounded-xl text-sm">
+            {holidayOnSelected && (
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-black/8 text-foreground rounded-xl text-sm">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                Holiday: {getHolidayReason(date)}
+                Attendance is disabled on holidays
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Member</Label>
-              <Select value={memberId} onValueChange={setMemberId}>
-                <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="Select member" /></SelectTrigger>
-                <SelectContent>
-                  {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {isDuplicate(date, memberId, editId || undefined) && (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-destructive/10 text-destructive rounded-xl text-sm">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                Entry already exists for this member on this date
+            {role === "Admin" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Member</Label>
+                <Select value={formMemberId} onValueChange={setFormMemberId}>
+                  <SelectTrigger className="h-10 rounded-xl">
+                    <SelectValue placeholder="Select member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name} ({m.role ?? "Intern"})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Login Time</Label>
-                <Input type="time" value={loginTime} onChange={e => setLoginTime(e.target.value)} className="h-10 rounded-xl" />
+                <Input type="time" value={loginTime} onChange={(e) => setLoginTime(e.target.value)} className="h-10 rounded-xl" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Logout Time</Label>
-                <Input type="time" value={logoutTime} onChange={e => setLogoutTime(e.target.value)} className="h-10 rounded-xl" />
+                <Input type="time" value={logoutTime} onChange={(e) => setLogoutTime(e.target.value)} className="h-10 rounded-xl" />
               </div>
             </div>
 
-            {loginTime && logoutTime && (
+            {loginTime && logoutTime && !holidayOnSelected && (
               <div className="flex gap-4 px-3 py-2.5 bg-muted/50 rounded-xl text-sm">
-                <span>Hours: <strong>{calculateHours(loginTime, logoutTime)}</strong></span>
-                <span>Status: <strong>{getStatus(calculateHours(loginTime, logoutTime))}</strong></span>
+                <span>
+                  Hours: <strong>{calculateHours(loginTime, logoutTime)}</strong>
+                </span>
+                <span>
+                  Status: <strong>{getStatus(calculateHours(loginTime, logoutTime))}</strong>
+                </span>
               </div>
             )}
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={save} disabled={holidayOnDate || isDuplicate(date, memberId, editId || undefined)} className="rounded-xl">Save</Button>
+            <Button variant="outline" onClick={() => setOpen(false)} className="rounded-xl">
+              Cancel
+            </Button>
+            <Button
+              onClick={save}
+              disabled={!canAddOrEdit}
+              className="rounded-xl"
+            >
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <ConfirmDialog
         open={!!deleteId}
-        onOpenChange={o => !o && setDeleteId(null)}
+        onOpenChange={(o) => !o && setDeleteId(null)}
         onConfirm={confirmDelete}
-        title="Delete Record"
+        title="Delete Attendance"
         description="This attendance record will be permanently removed."
       />
     </div>
   );
 }
+
+function getLast90Days(fromDateIso: string) {
+  // Calendar modifiers need stable dates; generate a small window around the currently selected date.
+  const center = new Date(fromDateIso + "T00:00:00");
+  const out: string[] = [];
+  // 45 days around selected date to keep DayPicker modifiers predictable.
+  for (let i = -45; i <= 45; i++) {
+    const d = new Date(center);
+    d.setDate(d.getDate() + i);
+    out.push(toIsoDate(d));
+  }
+  return out;
+}
+

@@ -1,0 +1,70 @@
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtleFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.motion-card,
+.glass-motion-card,
+.motion-item,
+.motion-container,
+.motion-button,
+.motion-input,
+.motion-textarea,
+.motion-shake,
+.motion-pulse,
+.motion-fade-in,
+.motion-slide-in {
+  will-change: transform, opacity;
+}
+
+.motion-card,
+.glass-motion-card {
+  animation: fadeInUp 0.35s ease-out;
+}
+
+.glass-motion-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.5));
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 1rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.motion-button {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.motion-button:hover {
+  transform: translateY(-1px);
+}
+
+.float-gentle {
+  animation: subtleFloat 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

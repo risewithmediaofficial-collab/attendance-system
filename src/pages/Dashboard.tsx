@@ -45,8 +45,8 @@ export default function Dashboard() {
     }
 
     const pieData = [
-      { name: "Done", value: doneReports, color: "hsl(152, 60%, 42%)" },
-      { name: "Pending", value: Math.max(0, reports.length - doneReports), color: "hsl(0, 72%, 51%)" },
+      { name: "Done", value: doneReports, color: "hsl(0, 0%, 18%)" },
+      { name: "Pending", value: Math.max(0, reports.length - doneReports), color: "hsl(0, 0%, 50%)" },
     ];
 
     return {
@@ -64,12 +64,12 @@ export default function Dashboard() {
   }, [today]);
 
   const cards = [
-    { title: "Total Members", value: stats.totalMembers, icon: Users, gradient: "from-primary/10 to-primary/5", iconColor: "text-primary" },
-    { title: "Present Today", value: stats.presentToday, icon: CalendarCheck, gradient: "from-success/10 to-success/5", iconColor: "text-success" },
-    { title: "Absent Today", value: stats.absentToday, icon: AlertCircle, gradient: "from-destructive/10 to-destructive/5", iconColor: "text-destructive" },
-    { title: "Hours Today", value: stats.totalHoursToday, icon: Clock, gradient: "from-warning/10 to-warning/5", iconColor: "text-warning" },
-    { title: "Reports Done", value: stats.doneReports, icon: TrendingUp, gradient: "from-success/10 to-success/5", iconColor: "text-success" },
-    { title: "Total Reports", value: stats.totalReports, icon: FileText, gradient: "from-info/10 to-info/5", iconColor: "text-info" },
+    { title: "Total Members", value: stats.totalMembers, icon: Users, gradient: "from-black/15 to-black/5", iconColor: "text-black/80" },
+    { title: "Present Today", value: stats.presentToday, icon: CalendarCheck, gradient: "from-black/12 to-black/5", iconColor: "text-black/75" },
+    { title: "Absent Today", value: stats.absentToday, icon: AlertCircle, gradient: "from-black/10 to-black/4", iconColor: "text-black/70" },
+    { title: "Hours Today", value: stats.totalHoursToday, icon: Clock, gradient: "from-black/14 to-black/6", iconColor: "text-black/78" },
+    { title: "Reports Done", value: stats.doneReports, icon: TrendingUp, gradient: "from-black/12 to-black/5", iconColor: "text-black/75" },
+    { title: "Total Reports", value: stats.totalReports, icon: FileText, gradient: "from-black/10 to-black/4", iconColor: "text-black/70" },
   ];
 
   return (
@@ -168,11 +168,11 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-center gap-4 mt-2">
                 <div className="flex items-center gap-1.5 text-xs">
-                  <div className="w-2.5 h-2.5 rounded-full bg-success" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-black/80" />
                   <span>Done</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs">
-                  <div className="w-2.5 h-2.5 rounded-full bg-destructive" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-black/45" />
                   <span>Pending</span>
                 </div>
               </div>
