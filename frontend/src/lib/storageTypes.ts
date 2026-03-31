@@ -39,10 +39,16 @@ export interface AttendanceRecord {
   memberId: string;
   loginTime: string;
   logoutTime: string;
+  lunchStartTime?: string;
+  lunchEndTime?: string;
   hours: number;
   status: "Full Day" | "Half Day" | "Short";
   approvalStatus?: "Approved" | "Pending" | "Rejected";
   submittedAt?: number;
+  submittedBy?: string;
+  approvedAt?: number;
+  approvedBy?: string;
+  rejectionReason?: string;
 }
 
 export interface WorkReport {
@@ -87,16 +93,24 @@ export function generateId() {
   return crypto.randomUUID();
 }
 
-export function calculateHours(login: string, logout: string): number {
+export function calculateHours(login: string, logout: string, lunchStart?: string, lunchEnd?: string): number {
   const [lh, lm] = login.split(":").map(Number);
   const [oh, om] = logout.split(":").map(Number);
-  const diff = oh * 60 + om - (lh * 60 + lm);
+  let diff = oh * 60 + om - (lh * 60 + lm);
+  
+  if (lunchStart && lunchEnd) {
+    const [slh, slm] = lunchStart.split(":").map(Number);
+    const [elh, elm] = lunchEnd.split(":").map(Number);
+    const lunchDiff = elh * 60 + elm - (slh * 60 + slm);
+    diff -= lunchDiff;
+  }
+  
   return Math.max(0, +(diff / 60).toFixed(2));
 }
 
 export function getStatus(hours: number): "Full Day" | "Half Day" | "Short" {
-  if (hours >= 8) return "Full Day";
-  if (hours >= 4) return "Half Day";
+  if (hours >= 6) return "Full Day";
+  if (hours >= 3) return "Half Day";
   return "Short";
 }
 

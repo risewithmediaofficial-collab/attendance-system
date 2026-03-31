@@ -235,7 +235,7 @@ export default function WorkReports() {
                   <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Due date</TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Assignee</TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Board status</TableHead>
-                  <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80 min-w-[140px]">
+                  <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">
                     Description
                   </TableHead>
                 </TableRow>
@@ -278,10 +278,10 @@ export default function WorkReports() {
                     <TableCell>
                       <span className={cn("text-xs font-semibold", statusBadgeClass(t.status))}>{t.status}</span>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-xs">
-                      <span className="line-clamp-2" title={t.description || ""}>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <div className="line-clamp-1 sm:line-clamp-2 md:line-clamp-3 break-words whitespace-normal" title={t.description || ""}>
                         {t.description?.trim() ? t.description : "—"}
-                      </span>
+                      </div>
                     </TableCell>
                   </motion.tr>
                 ))}

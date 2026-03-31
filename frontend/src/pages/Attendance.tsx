@@ -14,7 +14,7 @@ import {
   XCircle,
   History,
 } from "lucide-react";
-import { storage, type AttendanceRecord, type Member, calculateHours, getStatus, getDayName, isHoliday as isHolidayFn, getHolidayReason } from "@/lib/storage";
+import { storage, type AttendanceRecord, type Member, calculateHours, getStatus, getDayName, isHoliday as isHolidayFn, getHolidayReason, submitAttendance, approveAttendance, rejectAttendance } from "@/lib/storage";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +80,9 @@ export default function Attendance() {
   const attendance = storage.getAttendance();
   const holidays = storage.getHolidays();
 
+  // Filter out admin members from attendance tracking
+  const nonAdminMembers = useMemo(() => members.filter((m) => m.role !== "Admin"), [members]);
+
   const [records, setRecords] = useState<AttendanceRecord[]>(attendance);
 
   useEffect(() => {
@@ -88,9 +91,9 @@ export default function Attendance() {
 
   const today = toIsoDate(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(today);
-  const [calendarMemberId, setCalendarMemberId] = useState<string>(() => me?.id ?? members[0]?.id ?? "");
+  const [calendarMemberId, setCalendarMemberId] = useState<string>(() => me?.id ?? nonAdminMembers[0]?.id ?? "");
 
-  const selectableMembers = role === "Admin" ? members : me ? [me] : [];
+  const selectableMembers = role === "Admin" ? nonAdminMembers : me ? [me] : [];
 
   useEffect(() => {
     if (role !== "Admin" && me) setCalendarMemberId(me.id);
@@ -136,16 +139,22 @@ export default function Attendance() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const [formMemberId, setFormMemberId] = useState<string>("");
   const [loginTime, setLoginTime] = useState("09:00");
   const [logoutTime, setLogoutTime] = useState("18:00");
+  const [lunchStartTime, setLunchStartTime] = useState<string>("");
+  const [lunchEndTime, setLunchEndTime] = useState<string>("");
 
   const initForm = (memberId: string, record?: AttendanceRecord) => {
     setEditId(record?.id ?? null);
     setFormMemberId(memberId);
     setLoginTime(record?.loginTime ?? "09:00");
     setLogoutTime(record?.logoutTime ?? "18:00");
+    setLunchStartTime(record?.lunchStartTime ?? "");
+    setLunchEndTime(record?.lunchEndTime ?? "");
   };
 
   const canAddOrEdit = useMemo(() => {
@@ -225,7 +234,7 @@ export default function Attendance() {
     return records.some((r) => r.date === dateStr && r.memberId === memberId && r.id !== excludeId);
   };
 
-  const save = () => {
+  const save = async () => {
     if (!formMemberId || !selectedDate) return;
     if (holidayOnSelected) return;
     if (!storage.canEditAttendanceDate(selectedDate) && role !== "Admin") return;
@@ -235,47 +244,44 @@ export default function Attendance() {
       return;
     }
 
-    const hours = calculateHours(loginTime, logoutTime);
-    const status = getStatus(hours);
-    const approvalStatus = role === "Admin" ? "Approved" : "Pending";
-    const submittedAt = Date.now();
-
-    if (editId) {
-      setRecords((prev) =>
-        prev.map((r) =>
-          r.id === editId 
-            ? { ...r, date: selectedDate, memberId: formMemberId, loginTime, logoutTime, hours, status, approvalStatus, submittedAt } 
-            : r,
-        ),
-      );
-      toast.success(role === "Admin" ? "Attendance updated" : "Attendance submitted for approval");
-    } else {
-      const next: AttendanceRecord = { 
-        id: crypto.randomUUID(), 
-        date: selectedDate, 
-        memberId: formMemberId, 
-        loginTime, 
-        logoutTime, 
-        hours, 
-        status, 
-        approvalStatus, 
-        submittedAt 
-      };
-      setRecords((prev) => [...prev, next]);
+    try {
+      await submitAttendance({
+        date: selectedDate,
+        loginTime,
+        logoutTime,
+        lunchStartTime: lunchStartTime || undefined,
+        lunchEndTime: lunchEndTime || undefined,
+      });
       toast.success(role === "Admin" ? "Attendance recorded" : "Attendance submitted for approval");
+      setOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit attendance");
     }
-
-    setOpen(false);
   };
 
-  const handleApprove = (id: string) => {
-    setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, approvalStatus: "Approved" } : r)));
-    toast.success("Attendance approved");
+  const handleApprove = async (id: string) => {
+    try {
+      await approveAttendance(id);
+      toast.success("Attendance approved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to approve");
+    }
   };
 
-  const handleReject = (id: string) => {
-    setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, approvalStatus: "Rejected" } : r)));
-    toast.error("Attendance rejected");
+  const handleReject = async (id: string) => {
+    setRejectingId(id);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectingId) return;
+    try {
+      await rejectAttendance(rejectingId, rejectionReason);
+      toast.error("Attendance rejected");
+      setRejectingId(null);
+      setRejectionReason("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reject");
+    }
   };
 
   const confirmDelete = () => {
@@ -326,6 +332,16 @@ export default function Attendance() {
         >
           <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">Calendar</TabsTrigger>
           <TabsTrigger value="table" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">Table</TabsTrigger>
+          {role === "Admin" && (
+            <TabsTrigger value="pending" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">
+              Pending Approvals
+              {records.filter((r) => r.approvalStatus === "Pending").length > 0 && (
+                <Badge className="ml-2 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center p-0 text-xs">
+                  {records.filter((r) => r.approvalStatus === "Pending").length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="calendar" className="space-y-6">
@@ -339,7 +355,7 @@ export default function Attendance() {
                       <SelectValue placeholder="Select member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {members.map((m) => (
+                      {nonAdminMembers.map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.name} ({m.role ?? "Intern"})
                         </SelectItem>
@@ -615,6 +631,95 @@ export default function Attendance() {
             </Card>
           </div>
         </TabsContent>
+
+        {role === "Admin" && (
+          <TabsContent value="pending" className="space-y-6">
+            <Card className="glass-card rounded-2xl overflow-hidden border-white/20 shadow-2xl">
+              <CardHeader className="p-6 pb-4">
+                <CardTitle className="text-lg">Pending Attendance Approvals</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Requests awaiting your approval</p>
+              </CardHeader>
+              <div className="overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-white/5 hover:bg-white/5 border-b border-white/10">
+                      <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Member</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Date</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Time</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Hours</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Status</TableHead>
+                      <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Submitted</TableHead>
+                      <TableHead className="w-32 text-right font-bold text-xs uppercase tracking-widest text-foreground/80">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {records.filter((r) => r.approvalStatus === "Pending").length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-16 text-muted-foreground">
+                          No pending approvals
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      records
+                        .filter((r) => r.approvalStatus === "Pending")
+                        .map((record) => {
+                          const member = nonAdminMembers.find((m) => m.id === record.memberId);
+                          return (
+                            <motion.tr
+                              key={record.id}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              className="border-b border-white/5 group"
+                            >
+                              <TableCell className="font-semibold">{member?.name ?? "Unknown"}</TableCell>
+                              <TableCell className="text-sm">{record.date}</TableCell>
+                              <TableCell className="text-sm whitespace-nowrap">
+                                {record.loginTime} - {record.logoutTime}
+                                {record.lunchStartTime && record.lunchEndTime && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Lunch: {record.lunchStartTime} - {record.lunchEndTime}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-sm font-semibold">{record.hours}h</TableCell>
+                              <TableCell>
+                                <Badge className={statusClass[record.status]}>{record.status}</Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {record.submittedAt ? format(new Date(record.submittedAt), "MMM dd, HH:mm") : "—"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1 items-center">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 rounded-full bg-black/12 text-black/80 hover:bg-black hover:text-white transition-all duration-200"
+                                    onClick={() => handleApprove(record.id)}
+                                    title="Approve"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 rounded-full bg-black/10 text-black/70 hover:bg-black hover:text-white transition-all duration-200"
+                                    onClick={() => handleReject(record.id)}
+                                    title="Reject"
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </motion.tr>
+                          );
+                        })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Add/Edit dialog */}
@@ -651,7 +756,7 @@ export default function Attendance() {
                     <SelectValue placeholder="Select member" />
                   </SelectTrigger>
                   <SelectContent>
-                    {members.map((m) => (
+                    {nonAdminMembers.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.name} ({m.role ?? "Intern"})
                       </SelectItem>
@@ -672,13 +777,27 @@ export default function Attendance() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Lunch Break (Optional)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Lunch Start</Label>
+                  <Input type="time" value={lunchStartTime} onChange={(e) => setLunchStartTime(e.target.value)} className="h-10 rounded-xl" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Lunch End</Label>
+                  <Input type="time" value={lunchEndTime} onChange={(e) => setLunchEndTime(e.target.value)} className="h-10 rounded-xl" />
+                </div>
+              </div>
+            </div>
+
             {loginTime && logoutTime && !holidayOnSelected && (
               <div className="flex gap-4 px-3 py-2.5 bg-muted/50 rounded-xl text-sm">
                 <span>
-                  Hours: <strong>{calculateHours(loginTime, logoutTime)}</strong>
+                  Hours: <strong>{calculateHours(loginTime, logoutTime, lunchStartTime, lunchEndTime)}</strong>
                 </span>
                 <span>
-                  Status: <strong>{getStatus(calculateHours(loginTime, logoutTime))}</strong>
+                  Status: <strong>{getStatus(calculateHours(loginTime, logoutTime, lunchStartTime, lunchEndTime))}</strong>
                 </span>
               </div>
             )}
@@ -694,6 +813,34 @@ export default function Attendance() {
               className="rounded-xl"
             >
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rejection dialog */}
+      <Dialog open={!!rejectingId} onOpenChange={(o) => !o && (setRejectingId(null), setRejectionReason(""))}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Reject Attendance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Reason for Rejection</Label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Enter reason for rejection..."
+                className="w-full h-20 p-2 rounded-xl border border-input bg-background"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => (setRejectingId(null), setRejectionReason(""))} className="rounded-xl">
+              Cancel
+            </Button>
+            <Button onClick={confirmReject} className="rounded-xl bg-red-500 hover:bg-red-600">
+              Reject
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -256,4 +256,99 @@ export const localStorageImpl = {
 
   getHolidays: (): Holiday[] => get<Holiday[]>("holidays", []),
   setHolidays: (h: Holiday[]) => set("holidays", h),
+
+  async submitAttendance(data: {
+    date: string;
+    loginTime: string;
+    logoutTime: string;
+    lunchStartTime?: string;
+    lunchEndTime?: string;
+  }): Promise<void> {
+    const { calculateHours, getStatus } = await import("./storageTypes");
+    const attendance = get<AttendanceRecord[]>("attendance", []);
+    const currentMember = localStorageImpl.getCurrentMember();
+    const hours = calculateHours(data.loginTime, data.logoutTime, data.lunchStartTime, data.lunchEndTime);
+    const status = getStatus(hours);
+
+    const newRecord: AttendanceRecord = {
+      id: generateId(),
+      date: data.date,
+      memberId: currentMember?.id ?? "",
+      loginTime: data.loginTime,
+      logoutTime: data.logoutTime,
+      lunchStartTime: data.lunchStartTime,
+      lunchEndTime: data.lunchEndTime,
+      hours,
+      status,
+      approvalStatus: localStorageImpl.isAdmin() ? "Approved" : "Pending",
+      submittedAt: Date.now(),
+      submittedBy: currentMember?.id,
+      approvedAt: localStorageImpl.isAdmin() ? Date.now() : undefined,
+      approvedBy: localStorageImpl.isAdmin() ? currentMember?.id : undefined,
+    };
+
+    // Check if record already exists for this date
+    const existing = attendance.findIndex(
+      (a) => a.date === data.date && a.memberId === currentMember?.id && a.approvalStatus === "Approved"
+    );
+    if (existing >= 0) {
+      throw new Error("Attendance already approved for this date");
+    }
+
+    set("attendance", [...attendance, newRecord]);
+  },
+
+  async approveAttendance(id: string): Promise<void> {
+    const attendance = get<AttendanceRecord[]>("attendance", []);
+    const index = attendance.findIndex((a) => a.id === id);
+    if (index >= 0) {
+      const currentMember = localStorageImpl.getCurrentMember();
+      attendance[index].approvalStatus = "Approved";
+      attendance[index].approvedAt = Date.now();
+      attendance[index].approvedBy = currentMember?.id;
+      set("attendance", attendance);
+    }
+  },
+
+  async rejectAttendance(id: string, reason: string): Promise<void> {
+    const attendance = get<AttendanceRecord[]>("attendance", []);
+    const index = attendance.findIndex((a) => a.id === id);
+    if (index >= 0) {
+      attendance[index].approvalStatus = "Rejected";
+      attendance[index].rejectionReason = reason;
+      set("attendance", attendance);
+    }
+  },
+
+  async approvePending(id: string): Promise<void> {
+    const pending = get<PendingUser[]>("pendingUsers", []);
+    const pendingUser = pending.find((p) => p.id === id);
+    if (!pendingUser) throw new Error("User not found");
+
+    const members = localStorageImpl.getMembers();
+    const users = localStorageImpl.getUsers();
+
+    const newMember: Member = {
+      id: generateId(),
+      name: pendingUser.name,
+      role: pendingUser.role,
+      avatarSeed: pendingUser.name.slice(0, 3).toLowerCase(),
+    };
+
+    const newUser: User = {
+      id: generateId(),
+      memberId: newMember.id,
+      username: pendingUser.username,
+      password: pendingUser.password,
+    };
+
+    localStorageImpl.setMembers([...members, newMember]);
+    localStorageImpl.setUsers([...users, newUser]);
+    localStorageImpl.setPendingUsers(pending.filter((p) => p.id !== id));
+  },
+
+  async rejectPending(id: string): Promise<void> {
+    const pending = get<PendingUser[]>("pendingUsers", []);
+    localStorageImpl.setPendingUsers(pending.filter((p) => p.id !== id));
+  },
 };

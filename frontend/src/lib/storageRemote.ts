@@ -231,4 +231,31 @@ export const remoteStorageImpl = {
     const data = await apiJson<BootstrapData>("/bootstrap");
     applyBootstrap(data, userId);
   },
+
+  async submitAttendance(data: {
+    date: string;
+    loginTime: string;
+    logoutTime: string;
+    lunchStartTime?: string;
+    lunchEndTime?: string;
+  }): Promise<void> {
+    const response = await apiJson<BootstrapData>("/attendance/submit", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    applyBootstrap(response, getStoredUserId());
+  },
+
+  async approveAttendance(id: string): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/attendance/${id}/approve`, { method: "POST" });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async rejectAttendance(id: string, reason: string): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/attendance/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
 };

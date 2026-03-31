@@ -22,3 +22,21 @@ export async function approvePendingAccount(id: string): Promise<void> {
 export async function rejectPendingAccount(id: string): Promise<void> {
   if (useApiBackend) await remoteStorageImpl.rejectPending(id);
 }
+
+export async function submitAttendance(data: {
+  date: string;
+  loginTime: string;
+  logoutTime: string;
+  lunchStartTime?: string;
+  lunchEndTime?: string;
+}): Promise<void> {
+  return storage.submitAttendance(data);
+}
+
+export async function approveAttendance(id: string): Promise<void> {
+  return storage.approveAttendance(id);
+}
+
+export async function rejectAttendance(id: string, reason: string): Promise<void> {
+  return storage.rejectAttendance(id, reason);
+}

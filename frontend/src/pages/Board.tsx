@@ -405,7 +405,7 @@ export default function Board() {
             </Card>
           )}
 
-          <div className="overflow-x-auto pb-1">
+          <div className="overflow-x-auto pb-1 md:pb-0">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -413,7 +413,7 @@ export default function Board() {
               onDragEnd={handleBoardDragEnd}
               onDragCancel={handleBoardDragCancel}
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-[min(100%,900px)] md:min-w-[900px] items-stretch">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full md:min-w-[900px] items-stretch">
                 {columns.map((col) => (
                   <KanbanColumn
                     key={col}

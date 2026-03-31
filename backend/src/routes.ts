@@ -53,8 +53,16 @@ async function bootstrapPayload() {
       memberId: a.memberId,
       loginTime: a.loginTime,
       logoutTime: a.logoutTime,
+      lunchStartTime: a.lunchStartTime ?? undefined,
+      lunchEndTime: a.lunchEndTime ?? undefined,
       hours: a.hours,
       status: a.status as "Full Day" | "Half Day" | "Short",
+      approvalStatus: (a.approvalStatus ?? "Pending") as "Pending" | "Approved" | "Rejected",
+      submittedAt: a.submittedAt ?? undefined,
+      submittedBy: a.submittedBy ?? undefined,
+      approvedAt: a.approvedAt ?? undefined,
+      approvedBy: a.approvedBy ?? undefined,
+      rejectionReason: a.rejectionReason ?? undefined,
     })),
     tasks: tasks.map((t) => ({
       id: t._id,
@@ -291,8 +299,16 @@ export function apiRouter(): Router {
           memberId: String(a.memberId),
           loginTime: String(a.loginTime),
           logoutTime: String(a.logoutTime),
+          lunchStartTime: a.lunchStartTime ? String(a.lunchStartTime) : undefined,
+          lunchEndTime: a.lunchEndTime ? String(a.lunchEndTime) : undefined,
           hours: Number(a.hours),
           status: String(a.status),
+          approvalStatus: a.approvalStatus ? String(a.approvalStatus) : "Pending",
+          submittedAt: a.submittedAt ? Number(a.submittedAt) : undefined,
+          submittedBy: a.submittedBy ? String(a.submittedBy) : undefined,
+          approvedAt: a.approvedAt ? Number(a.approvedAt) : undefined,
+          approvedBy: a.approvedBy ? String(a.approvedBy) : undefined,
+          rejectionReason: a.rejectionReason ? String(a.rejectionReason) : undefined,
         })),
       );
     }
@@ -359,6 +375,127 @@ export function apiRouter(): Router {
       );
     }
     res.json({ ok: true });
+  });
+
+  // Helper function to calculate hours
+  function calculateWorkHours(loginTime: string, logoutTime: string, lunchStartTime?: string, lunchEndTime?: string): number {
+    const [lh, lm] = loginTime.split(":").map(Number);
+    const [oh, om] = logoutTime.split(":").map(Number);
+    let totalMinutes = oh * 60 + om - (lh * 60 + lm);
+    
+    if (lunchStartTime && lunchEndTime) {
+      const [slh, slm] = lunchStartTime.split(":").map(Number);
+      const [elh, elm] = lunchEndTime.split(":").map(Number);
+      const lunchMinutes = elh * 60 + elm - (slh * 60 + slm);
+      totalMinutes -= lunchMinutes;
+    }
+    
+    return Math.max(0, +(totalMinutes / 60).toFixed(2));
+  }
+
+  // Helper function to get status
+  function getAttendanceStatus(hours: number): "Full Day" | "Half Day" | "Short" {
+    if (hours >= 6) return "Full Day";
+    if (hours >= 3) return "Half Day";
+    return "Short";
+  }
+
+  // Submit attendance request
+  r.post("/attendance/submit", authMiddleware, async (req, res) => {
+    const loginTime = String(req.body?.loginTime ?? "").trim();
+    const logoutTime = String(req.body?.logoutTime ?? "").trim();
+    const date = String(req.body?.date ?? "").trim();
+    const lunchStartTime = req.body?.lunchStartTime ? String(req.body.lunchStartTime).trim() : undefined;
+    const lunchEndTime = req.body?.lunchEndTime ? String(req.body.lunchEndTime).trim() : undefined;
+
+    if (!loginTime || !logoutTime || !date) {
+      res.status(400).json({ error: "Login time, logout time, and date required" });
+      return;
+    }
+
+    // Check if date is in the past (only allow same day submission for non-admins)
+    if (req.role !== "Admin") {
+      const today = new Date().toISOString().split("T")[0];
+      if (date !== today) {
+        res.status(403).json({ error: "Employees can only submit attendance for today" });
+        return;
+      }
+    }
+
+    const hours = calculateWorkHours(loginTime, logoutTime, lunchStartTime, lunchEndTime);
+    const status = getAttendanceStatus(hours);
+    const id = randomUUID();
+
+    // Check for existing record for this date and member
+    const existing = await AttendanceRecord.findOne({ date, memberId: req.memberId }).lean();
+    if (existing && existing.approvalStatus === "Approved") {
+      res.status(403).json({ error: "Attendance already approved for this date" });
+      return;
+    }
+
+    const data = {
+      _id: id,
+      date,
+      memberId: req.memberId,
+      loginTime,
+      logoutTime,
+      lunchStartTime,
+      lunchEndTime,
+      hours,
+      status,
+      approvalStatus: "Pending" as const,
+      submittedAt: Date.now(),
+      submittedBy: req.memberId,
+    };
+
+    if (req.role === "Admin") {
+      // Auto-approve for admin submissions
+      await AttendanceRecord.create({
+        ...data,
+        approvalStatus: "Approved",
+        approvedAt: Date.now(),
+        approvedBy: req.memberId,
+      });
+    } else {
+      await AttendanceRecord.create(data);
+    }
+
+    res.status(201).json(await bootstrapPayload());
+  });
+
+  // Approve attendance request
+  r.post("/attendance/:id/approve", authMiddleware, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const record = await AttendanceRecord.findById(id);
+    if (!record) {
+      res.status(404).json({ error: "Attendance record not found" });
+      return;
+    }
+
+    record.approvalStatus = "Approved";
+    record.approvedAt = Date.now();
+    record.approvedBy = req.memberId;
+    await record.save();
+
+    res.json(await bootstrapPayload());
+  });
+
+  // Reject attendance request
+  r.post("/attendance/:id/reject", authMiddleware, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const reason = String(req.body?.reason ?? "").trim();
+    
+    const record = await AttendanceRecord.findById(id);
+    if (!record) {
+      res.status(404).json({ error: "Attendance record not found" });
+      return;
+    }
+
+    record.approvalStatus = "Rejected";
+    record.rejectionReason = reason || "";
+    await record.save();
+
+    res.json(await bootstrapPayload());
   });
 
   return r;
