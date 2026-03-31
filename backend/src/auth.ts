@@ -5,6 +5,16 @@ import { Member, User } from "./models.js";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-me";
 
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string;
+      memberId?: string;
+      role?: string;
+    }
+  }
+}
+
 export type AuthPayload = { sub: string };
 
 export function signToken(userId: string): string {
@@ -23,11 +33,7 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
   return bcrypt.compare(plain, hash);
 }
 
-export type AuthedRequest = Request & {
-  userId?: string;
-  memberId?: string;
-  role?: string;
-};
+export type AuthedRequest = Request;
 
 export async function authMiddleware(req: AuthedRequest, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
