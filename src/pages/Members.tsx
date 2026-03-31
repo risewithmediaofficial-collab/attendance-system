@@ -295,8 +295,8 @@ export default function Members() {
       )}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">Members</h2>
-          <p className="text-sm text-muted-foreground mt-2">Manage employees and interns, assign roles, and handle logins.</p>
+          <h2 className="page-title mono-title">Members</h2>
+          <p className="page-subtitle mt-2">Manage employees and interns, assign roles, and handle logins.</p>
         </div>
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button

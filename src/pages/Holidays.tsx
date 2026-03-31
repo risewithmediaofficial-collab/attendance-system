@@ -15,6 +15,18 @@ const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
 export default function Holidays() {
   const role = storage.getCurrentRole();
+  const [holidays, setHolidays] = useState<Holiday[]>(storage.getHolidays());
+  const [open, setOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [date, setDate] = useState("");
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    if (role === "Admin") {
+      storage.setHolidays(holidays);
+    }
+  }, [holidays, role]);
+
   if (role !== "Admin") {
     return (
       <div className="space-y-6">
@@ -30,14 +42,6 @@ export default function Holidays() {
       </div>
     );
   }
-
-  const [holidays, setHolidays] = useState<Holiday[]>(storage.getHolidays());
-  const [open, setOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [date, setDate] = useState("");
-  const [reason, setReason] = useState("");
-
-  useEffect(() => { storage.setHolidays(holidays); }, [holidays]);
 
   const save = () => {
     if (!date || !reason.trim()) return;
@@ -73,8 +77,10 @@ export default function Holidays() {
         className="flex items-center justify-between flex-wrap gap-4"
       >
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">Holidays & Days Off</h2>
-          <p className="text-sm text-muted-foreground mt-2">{holidays.length} holiday{holidays.length !== 1 ? "s" : ""} scheduled • Plan your time</p>
+          <h2 className="page-title mono-title">Holidays & Days Off</h2>
+          <p className="page-subtitle mt-2">
+            {holidays.length} holiday{holidays.length !== 1 ? "s" : ""} scheduled - plan your time
+          </p>
         </div>
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button 
@@ -117,7 +123,7 @@ export default function Holidays() {
                       </motion.div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm text-foreground">{h.reason}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{formatDate(h.date)} · {getDayName(h.date)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{formatDate(h.date)} - {getDayName(h.date)}</p>
                       </div>
                     </div>
                     <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
@@ -192,3 +198,4 @@ export default function Holidays() {
     </div>
   );
 }
+

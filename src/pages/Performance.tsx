@@ -115,8 +115,8 @@ export default function Performance() {
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">Performance Analytics</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="page-title mono-title">Performance Analytics</h2>
+          <p className="page-subtitle mt-1">
             Score = Attendance% (60%) + Task Completion% (40%)
           </p>
         </div>

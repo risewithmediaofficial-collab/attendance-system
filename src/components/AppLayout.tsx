@@ -18,7 +18,7 @@ export function AppLayout({ children, onLogout }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useIsMobile();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifTick, setNotifTick] = useState(0);
+  const [, setNotifTick] = useState(0);
 
   const member = storage.getCurrentMember();
   const role = storage.getCurrentRole();
@@ -90,12 +90,10 @@ export function AppLayout({ children, onLogout }: Props) {
     return list;
   })();
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _ = notifTick;
   const unreadCount = notifications.filter((n) => !notificationsRead[n.key]).length;
 
   return (
-    <div className="min-h-screen flex w-full overflow-hidden" style={{ background: "linear-gradient(160deg,#ffffff 0%,#f3f3f4 52%,#e8e8ea 100%)" }}>
+    <div className="min-h-screen flex w-full overflow-hidden">
       {!isMobile && (
         <AppSidebar
           onLogout={onLogout}
@@ -125,11 +123,11 @@ export function AppLayout({ children, onLogout }: Props) {
         <header
           className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-6 lg:px-8"
           style={{
-            background: "rgba(255,255,255,0.72)",
-            backdropFilter: "blur(22px)",
-            WebkitBackdropFilter: "blur(22px)",
-            borderBottom: "1px solid rgba(0,0,0,0.1)",
-            boxShadow: "0 2px 16px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.8) inset",
+            background: "rgba(250,252,255,0.54)",
+            backdropFilter: "blur(18px)",
+            WebkitBackdropFilter: "blur(18px)",
+            borderBottom: "1px solid rgba(255,255,255,0.58)",
+            boxShadow: "0 10px 28px rgba(26,32,44,0.08), 0 1px 0 rgba(255,255,255,0.7) inset",
           }}
         >
           <motion.div
@@ -256,11 +254,17 @@ export function AppLayout({ children, onLogout }: Props) {
           </motion.div>
         </header>
 
-        <main
-          className="flex-1 overflow-auto"
-          style={{ background: "linear-gradient(160deg,#ffffff 0%,#f3f3f4 55%,#ececee 100%)" }}
-        >
-          {children}
+        <main className="flex-1 overflow-auto px-3 py-3 md:px-5 md:py-4">
+          <div className="app-scene min-h-[calc(100vh-5.5rem)]">
+            <div className="app-bubble light h-24 w-24 -left-3 top-8 md:h-32 md:w-32" />
+            <div className="app-bubble dark h-20 w-20 right-10 top-6 md:h-24 md:w-24" />
+            <div className="app-bubble dark h-24 w-24 -left-6 bottom-16 md:h-28 md:w-28" />
+            <div className="app-bubble light h-28 w-28 right-4 bottom-10 md:h-36 md:w-36" />
+
+            <div className="app-shell min-h-[calc(100vh-6.5rem)] px-3 py-4 md:px-5 md:py-6">
+              {children}
+            </div>
+          </div>
         </main>
       </div>
     </div>

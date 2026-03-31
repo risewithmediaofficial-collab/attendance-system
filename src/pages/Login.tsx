@@ -96,117 +96,99 @@ export default function Login({ onLogin }: Props) {
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col lg:flex-row"
-      style={{ background: "linear-gradient(160deg, #ffffff 0%, #f4f4f5 52%, #e8e8ea 100%)" }}
-    >
-      <div
-        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-14 relative overflow-hidden"
-        style={{
-          background: "linear-gradient(160deg, rgba(255,255,255,0.92) 0%, rgba(243,243,245,0.94) 100%)",
-          borderRight: "1px solid rgba(0,0,0,0.08)",
-        }}
-      >
-        <div
-          className="absolute top-16 right-10 w-72 h-72 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(0,0,0,0.12), transparent)", filter: "blur(60px)" }}
-        />
-        <div
-          className="absolute -bottom-10 -left-10 w-80 h-80 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(0,0,0,0.08), transparent)", filter: "blur(70px)" }}
-        />
+    <div className="min-h-screen p-3 md:p-6">
+      <div className="app-scene mx-auto max-w-[1320px] min-h-[calc(100vh-1.5rem)] md:min-h-[calc(100vh-3rem)] flex items-center justify-center">
+        <div className="app-bubble light h-24 w-24 left-1 top-20 md:h-36 md:w-36 md:left-8" />
+        <div className="app-bubble dark h-24 w-24 left-0 bottom-16 md:h-32 md:w-32 md:left-4" />
+        <div className="app-bubble dark h-24 w-24 right-16 top-8 md:h-28 md:w-28 md:right-24" />
+        <div className="app-bubble light h-24 w-24 right-2 bottom-14 md:h-36 md:w-36 md:right-8" />
 
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="relative z-10"
-        >
-          <div className="flex items-center gap-3 mb-14">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-2xl blur-lg" style={{ background: "rgba(0,0,0,0.24)" }} />
-              <img
-                src={logoImg}
-                alt="Rise With Media"
-                className="h-12 w-12 rounded-2xl object-cover relative"
-                style={{ boxShadow: "0 6px 20px rgba(0,0,0,0.3)" }}
-              />
+        <div className="app-shell w-full overflow-hidden">
+          <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="hidden lg:flex flex-col justify-between p-12 xl:p-14 relative border-r border-white/45">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="relative z-10"
+              >
+                <div className="flex items-center gap-3 mb-12">
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-2xl blur-lg" style={{ background: "rgba(24, 32, 46, 0.2)" }} />
+                    <img
+                      src={logoImg}
+                      alt="Rise With Media"
+                      className="h-12 w-12 rounded-2xl object-cover relative"
+                      style={{ boxShadow: "0 6px 20px rgba(21, 27, 39, 0.25)" }}
+                    />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-foreground">Rise With Media</p>
+                    <p className="text-xs text-muted-foreground">Management Platform</p>
+                  </div>
+                </div>
+
+                <div
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-8"
+                  style={{
+                    background: "rgba(247, 250, 255, 0.48)",
+                    border: "1px solid rgba(255,255,255,0.65)",
+                    color: "rgba(34,44,59,0.75)",
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.75)",
+                  }}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Minimal Workspace
+                </div>
+
+                <h1 className="text-6xl xl:text-7xl font-bold leading-[0.95] mb-6 mono-title">
+                  Rise With
+                  <br />
+                  Media.
+                </h1>
+                <p className="text-lg leading-relaxed max-w-md text-muted-foreground">
+                  Manage attendance, tasks, and performance in a clean glass workspace inspired by neumorphic depth.
+                </p>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="relative z-10"
+              >
+                <div className="h-px mb-6" style={{ background: "linear-gradient(90deg, transparent, rgba(86,99,120,0.3), transparent)" }} />
+                <p className="text-sm font-semibold text-muted-foreground">Demo: admin / admin123</p>
+                <p className="text-xs mt-1 text-black/45">employee / employee123 - intern / intern123</p>
+              </motion.div>
             </div>
-            <div>
-              <p className="font-bold text-sm text-foreground">Rise With Media</p>
-              <p className="text-xs text-muted-foreground">Management Platform</p>
-            </div>
-          </div>
 
-          <div
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-8"
-            style={{
-              background: "rgba(0,0,0,0.07)",
-              border: "1px solid rgba(0,0,0,0.18)",
-              color: "rgba(0,0,0,0.75)",
-            }}
-          >
-            <Sparkles className="h-3 w-3" />
-            Minimal Workspace
-          </div>
+            <div className="w-full flex items-center justify-center p-6 md:p-10 lg:p-12">
+              <motion.div
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+                className="w-full max-w-sm"
+              >
+                <motion.div className="lg:hidden mb-8 text-center">
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="inline-block mb-4"
+                  >
+                    <img
+                      src={logoImg}
+                      alt="Rise With Media"
+                      className="h-16 w-16 rounded-2xl mx-auto"
+                      style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }}
+                    />
+                  </motion.div>
+                  <h1 className="text-4xl font-bold mb-1 mono-title">Rise With Media</h1>
+                  <p className="text-sm text-muted-foreground">Management Platform</p>
+                </motion.div>
 
-          <h1 className="text-6xl xl:text-7xl font-bold leading-tight mb-6 mono-title">
-            Rise With
-            <br />
-            Media.
-          </h1>
-          <p className="text-lg leading-relaxed max-w-md text-muted-foreground">
-            Manage attendance, tasks, and performance in a clean black-and-white glassmorphism workspace.
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="relative z-10"
-        >
-          <div className="h-px mb-6" style={{ background: "linear-gradient(90deg, transparent, rgba(0,0,0,0.24), transparent)" }} />
-          <p className="text-sm font-semibold text-muted-foreground">Demo: admin / admin123</p>
-          <p className="text-xs mt-1 text-black/45">employee / employee123 - intern / intern123</p>
-        </motion.div>
-      </div>
-
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12">
-        <motion.div
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6 }}
-          className="w-full max-w-sm"
-        >
-          <motion.div className="lg:hidden mb-10 text-center">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="inline-block mb-5"
-            >
-              <img
-                src={logoImg}
-                alt="Rise With Media"
-                className="h-16 w-16 rounded-2xl mx-auto"
-                style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.24)" }}
-              />
-            </motion.div>
-            <h1 className="text-4xl font-bold mb-1 mono-title">Rise With Media</h1>
-            <p className="text-sm text-muted-foreground">Management Platform</p>
-          </motion.div>
-
-          <div
-            className="rounded-3xl p-8 md:p-10"
-            style={{
-              background: "rgba(255,255,255,0.76)",
-              backdropFilter: "blur(28px)",
-              WebkitBackdropFilter: "blur(28px)",
-              border: "1px solid rgba(255,255,255,0.58)",
-              boxShadow: "0 24px 64px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.05), 0 0 0 1px rgba(255,255,255,0.8) inset",
-            }}
-          >
+                <div className="glass-card rounded-3xl p-8 md:p-10">
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -362,8 +344,11 @@ export default function Login({ onLogin }: Props) {
             >
               Secure authentication enabled
             </motion.div>
+                </div>
+              </motion.div>
+            </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

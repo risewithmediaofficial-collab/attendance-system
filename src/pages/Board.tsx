@@ -327,8 +327,8 @@ export default function Board() {
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">Board</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="page-title mono-title">Board</h2>
+          <p className="page-subtitle mt-1">
             {role === "Admin"
               ? "Assign tasks and drag by the grip between columns, or change Status on any card (including moving completed tasks back)."
               : "Drag tasks by the grip, or use Status on the card to move or reopen completed work. Columns scroll when there are many tasks."}

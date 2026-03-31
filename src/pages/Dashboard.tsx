@@ -75,8 +75,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
-        <p className="text-muted-foreground text-sm mt-1">Overview of your intern management system</p>
+        <h2 className="page-title">Dashboard</h2>
+        <p className="page-subtitle mt-1">Overview of your intern management system</p>
       </div>
 
       <motion.div

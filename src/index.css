@@ -67,10 +67,10 @@
     @apply bg-background text-foreground;
     font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     background-image:
-      radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.92) 0%, transparent 42%),
-      radial-gradient(circle at 88% 8%, rgba(0, 0, 0, 0.05) 0%, transparent 38%),
-      radial-gradient(circle at 82% 88%, rgba(0, 0, 0, 0.04) 0%, transparent 42%),
-      linear-gradient(160deg, #ffffff 0%, #f4f4f5 48%, #ececee 100%);
+      radial-gradient(circle at 8% 10%, rgba(255, 255, 255, 0.96) 0%, transparent 38%),
+      radial-gradient(circle at 88% 12%, rgba(28, 33, 44, 0.07) 0%, transparent 32%),
+      radial-gradient(circle at 86% 86%, rgba(19, 25, 36, 0.06) 0%, transparent 34%),
+      linear-gradient(150deg, #d6dee5 0%, #dbe0e6 32%, #d5dde3 68%, #d8e1e8 100%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -98,16 +98,19 @@
 
 @layer utilities {
   .glass-card {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
-    border: 1px solid rgba(255, 255, 255, 0.55);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    background: linear-gradient(145deg, rgba(250, 252, 255, 0.62), rgba(245, 248, 252, 0.38));
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    box-shadow:
+      0 20px 46px rgba(24, 30, 43, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      inset 0 -1px 0 rgba(120, 132, 150, 0.12);
+    backdrop-filter: blur(20px) saturate(1.15);
+    -webkit-backdrop-filter: blur(20px) saturate(1.15);
   }
 
   .glass-card-content {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.45));
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: linear-gradient(145deg, rgba(252, 253, 255, 0.64), rgba(244, 247, 252, 0.36));
+    border: 1px solid rgba(255, 255, 255, 0.58);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
   }
@@ -166,9 +169,23 @@
   }
 
   .mono-title {
-    background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.55));
+    background: linear-gradient(135deg, #252d3a 0%, #3c4657 45%, #596578 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  .page-title {
+    font-size: clamp(1.85rem, 3vw, 2.35rem);
+    line-height: 1.05;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #27303e;
+  }
+
+  .page-subtitle {
+    color: rgba(39, 48, 62, 0.66);
+    font-size: 0.93rem;
+    line-height: 1.6;
   }
 }

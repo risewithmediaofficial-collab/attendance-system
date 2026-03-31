@@ -106,10 +106,10 @@ export default function WorkReports() {
         className="flex items-start justify-between flex-wrap gap-3"
       >
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
+          <h2 className="page-title mono-title">
             Work Reports
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="page-subtitle mt-1">
             Auto-generated from the task board — no manual entry. Updates when tasks change on the Board.
           </p>
         </div>

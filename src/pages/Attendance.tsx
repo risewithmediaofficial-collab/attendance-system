@@ -293,13 +293,13 @@ export default function Attendance() {
   })();
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-3xl font-bold mono-title">
+          <h2 className="page-title mono-title">
             Attendance
           </h2>
-          <p className="text-sm mt-1 text-muted-foreground">
+          <p className="page-subtitle mt-1">
             {role === "Admin" ? "Calendar + attendance table for your team." : "Your attendance calendar and daily status."}
           </p>
         </div>
