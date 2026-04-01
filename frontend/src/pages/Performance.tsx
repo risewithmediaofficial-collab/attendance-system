@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 
 function toIsoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return format(d, "yyyy-MM-dd");
 }
 
 function isHoliday(dateStr: string, holidays: { date: string }[]) {
@@ -23,8 +23,8 @@ function calcAttendancePct(memberId: string, days: string[], attendance: Attenda
   return +(present / workDays.length * 100).toFixed(1);
 }
 
-function calcTaskCompletionPct(memberId: string, tasks: Task[], days: string[]) {
-  const relevant = tasks.filter((t) => t.assignedTo === memberId && days.includes(t.deadline));
+function calcTaskCompletionPct(memberId: string, tasks: Task[]) {
+  const relevant = tasks.filter((t) => t.assignedTo === memberId);
   if (relevant.length === 0) return 0;
   const completed = relevant.filter((t) => t.status === "Completed").length;
   return +(completed / relevant.length * 100).toFixed(1);
@@ -45,14 +45,12 @@ export default function Performance() {
   const tasks = storage.getTasks();
   const holidays = storage.getHolidays();
 
-  const days = useMemo(() => {
+  const attendanceDays = useMemo(() => {
     const out: string[] = [];
-    const end = new Date();
-    // last 14 days
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(end);
-      d.setDate(d.getDate() - i);
-      out.push(toIsoDate(d));
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    for (const d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+      out.push(toIsoDate(new Date(d)));
     }
     return out;
   }, []);
@@ -65,12 +63,12 @@ export default function Performance() {
 
   const computed = useMemo(() => {
     return targetMembers.map((m) => {
-      const attPct = calcAttendancePct(m.id, days, attendance, holidays);
-      const taskPct = calcTaskCompletionPct(m.id, tasks, days);
+      const attPct = calcAttendancePct(m.id, attendanceDays, attendance, holidays);
+      const taskPct = calcTaskCompletionPct(m.id, tasks);
       const score = calcScore(attPct, taskPct);
-      const tasksAssigned = tasks.filter((t) => t.assignedTo === m.id && days.includes(t.deadline)).length;
-      const tasksCompleted = tasks.filter((t) => t.assignedTo === m.id && t.status === "Completed" && days.includes(t.deadline)).length;
-      const presentDays = days.filter((d) => !isHoliday(d, holidays) && attendance.some((a) => a.memberId === m.id && a.date === d)).length;
+      const tasksAssigned = tasks.filter((t) => t.assignedTo === m.id).length;
+      const tasksCompleted = tasks.filter((t) => t.assignedTo === m.id && t.status === "Completed").length;
+      const presentDays = attendanceDays.filter((d) => !isHoliday(d, holidays) && attendance.some((a) => a.memberId === m.id && a.date === d)).length;
       return {
         member: m,
         score,
@@ -79,15 +77,15 @@ export default function Performance() {
         tasksAssigned,
         tasksCompleted,
         presentDays,
-        workDays: days.filter((d) => !isHoliday(d, holidays)).length,
+        workDays: attendanceDays.filter((d) => !isHoliday(d, holidays)).length,
       };
     });
-  }, [targetMembers, days, attendance, holidays, tasks]);
+  }, [targetMembers, attendanceDays, attendance, holidays, tasks]);
 
   const chartData = useMemo(() => {
     // Attendance trend: aggregate present count / workdays.
-    const workDays = days.filter((d) => !isHoliday(d, holidays));
-    const series = days.map((d) => {
+    const workDays = attendanceDays.filter((d) => !isHoliday(d, holidays));
+    const series = attendanceDays.map((d) => {
       const denom = workDays.includes(d) ? 1 : 0;
       if (!denom) {
         return { day: format(new Date(d), "EEE"), presentPct: 0, holiday: true };
@@ -98,18 +96,18 @@ export default function Performance() {
       return { day: format(new Date(d), "EEE"), presentPct: +pct.toFixed(1), holiday: false };
     });
     return series;
-  }, [days, holidays, role, members, me, attendance]);
+  }, [attendanceDays, holidays, role, members, me, attendance]);
 
   const donutData = useMemo(() => {
     const relevantMemberIds = new Set(targetMembers.map((m) => m.id));
-    const relTasks = tasks.filter((t) => relevantMemberIds.has(t.assignedTo) && days.includes(t.deadline));
+    const relTasks = tasks.filter((t) => relevantMemberIds.has(t.assignedTo));
     const completed = relTasks.filter((t) => t.status === "Completed").length;
     const other = Math.max(0, relTasks.length - completed);
     return [
       { name: "Completed", value: completed, color: donutColors[0] },
       { name: "In-flight / Pending", value: other, color: donutColors[1] },
     ];
-  }, [tasks, targetMembers, days]);
+  }, [tasks, targetMembers]);
 
   return (
     <div className="space-y-6">
@@ -117,7 +115,7 @@ export default function Performance() {
         <div>
           <h2 className="page-title mono-title">Performance Analytics</h2>
           <p className="page-subtitle mt-1">
-            Score = Attendance% (60%) + Task Completion% (40%)
+            Score = Attendance% (Month-to-date, 60%) + Task Completion% (Overall, 40%)
           </p>
         </div>
         <div className="flex gap-2 items-center">
@@ -140,7 +138,7 @@ export default function Performance() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2">
           <Card className="glass-card rounded-2xl border-white/20 shadow-2xl">
             <CardHeader className="p-6 pb-4">
-              <CardTitle className="text-lg">Attendance % (Last 14 Days)</CardTitle>
+              <CardTitle className="text-lg">Attendance % (From Month Day 1)</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">Holiday days are excluded from the denominator.</p>
             </CardHeader>
             <CardContent className="p-6 pt-0">
@@ -171,8 +169,8 @@ export default function Performance() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="glass-card rounded-2xl border-white/20 shadow-2xl">
             <CardHeader className="p-6 pb-4">
-              <CardTitle className="text-lg">Task Completion (Selected)</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">Based on deadlines within the last 14 days.</p>
+              <CardTitle className="text-lg">Task Completion (Overall)</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Based on all assigned tasks.</p>
             </CardHeader>
             <CardContent className="p-6 pt-0">
               <div className="h-72">

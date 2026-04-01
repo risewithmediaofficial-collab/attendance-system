@@ -176,16 +176,16 @@ export default function Attendance() {
   }, [cellsForSelectedDate, search]);
 
   const analytics = useMemo(() => {
-    // Last 14 days present% trend.
-    const last14: string[] = [];
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      last14.push(toIsoDate(d));
+    // Month-to-date present% trend (from day 1 to today).
+    const monthDays: string[] = [];
+    const todayDate = new Date();
+    const start = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+    for (const d = new Date(start); d <= todayDate; d.setDate(d.getDate() + 1)) {
+      monthDays.push(toIsoDate(new Date(d)));
     }
     const memberIds = role === "Admin" ? selectableMembers.map((m) => m.id) : me ? [me.id] : [];
-    const workDays = last14.filter((d) => !isHolidayFn(d));
-    const trend = last14.map((d) => {
+    const workDays = monthDays.filter((d) => !isHolidayFn(d));
+    const trend = monthDays.map((d) => {
       if (isHolidayFn(d)) return { day: format(new Date(d), "EEE"), presentPct: 0 };
       const present = memberIds.filter((id) => 
         records.some((r) => r.memberId === id && r.date === d && r.approvalStatus !== "Rejected")
@@ -195,7 +195,7 @@ export default function Attendance() {
     });
     // Status distribution
     const counts: Record<AttendanceCell["status"], number> = { "Full Day": 0, "Half Day": 0, Short: 0, Absent: 0, Holiday: 0 };
-    for (const d of last14) {
+    for (const d of monthDays) {
       if (isHolidayFn(d)) continue;
       for (const id of memberIds) {
         const rec = records.find((r) => r.memberId === id && r.date === d && r.approvalStatus !== "Rejected");
@@ -579,7 +579,7 @@ export default function Attendance() {
             <Card className="glass-card rounded-2xl border-white/20 shadow-2xl">
               <CardHeader className="p-6 pb-4">
                 <CardTitle className="text-lg">Attendance Analytics</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Present rate over the last 14 days.</p>
+                <p className="text-sm text-muted-foreground mt-1">Present rate from day 1 of the current month.</p>
               </CardHeader>
               <CardContent className="p-6 pt-0">
                 <div className="h-72">
