@@ -5,16 +5,6 @@ import { Member, User } from "./models.js";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-me";
 
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-      memberId?: string;
-      role?: string;
-    }
-  }
-}
-
 export type AuthPayload = { sub: string };
 
 export function signToken(userId: string): string {

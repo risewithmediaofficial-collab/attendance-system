@@ -635,13 +635,14 @@ export function apiRouter(): Router {
       return;
     }
 
-    if (!task.subtasks) task.subtasks = [];
-    task.subtasks.push({
+    const taskDoc = task as any;
+    if (!taskDoc.subtasks) taskDoc.subtasks = [];
+    taskDoc.subtasks.push({
       _id: randomUUID(),
       title,
       completed: false,
       createdAt: Date.now(),
-    } as any);
+    });
 
     task.updatedAt = Date.now();
     await task.save();
@@ -682,7 +683,8 @@ export function apiRouter(): Router {
       return;
     }
 
-    task.subtasks = (task.subtasks as any[]).filter(s => s._id !== subtaskId);
+    const taskDoc = task as any;
+    taskDoc.subtasks = (taskDoc.subtasks as any[]).filter((s) => s._id !== subtaskId);
     task.updatedAt = Date.now();
     await task.save();
     res.json(await bootstrapPayload());
@@ -699,12 +701,13 @@ export function apiRouter(): Router {
       return;
     }
 
-    if (!task.checklist) task.checklist = [];
-    task.checklist.push({
+    const taskDoc = task as any;
+    if (!taskDoc.checklist) taskDoc.checklist = [];
+    taskDoc.checklist.push({
       _id: randomUUID(),
       text,
       completed: false,
-    } as any);
+    });
 
     task.updatedAt = Date.now();
     await task.save();
@@ -745,7 +748,8 @@ export function apiRouter(): Router {
       return;
     }
 
-    task.checklist = (task.checklist as any[]).filter(i => i._id !== itemId);
+    const taskDoc = task as any;
+    taskDoc.checklist = (taskDoc.checklist as any[]).filter((i) => i._id !== itemId);
     task.updatedAt = Date.now();
     await task.save();
     res.json(await bootstrapPayload());
@@ -802,7 +806,8 @@ export function apiRouter(): Router {
   });
 
   // Log activity helper (internal use)
-  async function logActivity(memberId: string, action: string, taskId?: string, details?: string) {
+  async function logActivity(memberId: string | undefined, action: string, taskId?: string, details?: string) {
+    if (!memberId) return;
     await ActivityLog.create({
       _id: randomUUID(),
       memberId,
@@ -831,13 +836,14 @@ export function apiRouter(): Router {
       return;
     }
 
-    if (!task.comments) task.comments = [];
-    task.comments.push({
+    const taskDoc = task as any;
+    if (!taskDoc.comments) taskDoc.comments = [];
+    taskDoc.comments.push({
       _id: randomUUID(),
       memberId: req.memberId,
       text,
       createdAt: Date.now(),
-    } as any);
+    });
 
     task.updatedAt = Date.now();
     await task.save();
@@ -870,7 +876,8 @@ export function apiRouter(): Router {
       return;
     }
 
-    task.comments = (task.comments as any[]).filter(c => c._id !== commentId);
+    const taskDoc = task as any;
+    taskDoc.comments = (taskDoc.comments as any[]).filter((c) => c._id !== commentId);
     task.updatedAt = Date.now();
     await task.save();
 
