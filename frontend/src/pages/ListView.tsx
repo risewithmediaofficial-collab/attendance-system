@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback } from "react";
 import { storage } from "../lib/storage";
 import { Task, TaskPriority, TaskStatus, Member } from "../lib/storageTypes";
 import { Input } from "../components/ui/input";
-import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { format } from "date-fns";
@@ -10,15 +9,7 @@ import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { TaskDetailsDialog } from "../components/TaskDetailsDialog";
 import { Checkbox } from "../components/ui/checkbox";
-import { Edit2, Trash2, Star, AlertCircle } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogTitle,
-} from "../components/ui/alert-dialog";
+import { Edit2, Star, AlertCircle } from "lucide-react";
 
 interface EditingState {
   taskId?: string;
@@ -38,9 +29,10 @@ const statusConfig: Record<TaskStatus, string> = {
 };
 
 export function ListView() {
+  const role = storage.getCurrentRole();
+  const currentMember = storage.getCurrentMember();
   const tasks = storage.getTasks();
   const members = storage.getMembers();
-  const currentMember = storage.getCurrentMember();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "All">("All");
@@ -51,10 +43,18 @@ export function ListView() {
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<EditingState>({});
   const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
-  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+
+  const visibleTasks = useMemo(() => {
+    if (role === "Admin") return tasks;
+    if (!currentMember?.id) return [];
+    return tasks.filter((t) => {
+      const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+      return assignees.includes(currentMember.id);
+    });
+  }, [tasks, role, currentMember?.id]);
 
   const filteredTasks = useMemo(() => {
-    let filtered = tasks.filter(
+    let filtered = visibleTasks.filter(
       (t) =>
         t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         t.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -87,7 +87,7 @@ export function ListView() {
     });
 
     return filtered;
-  }, [tasks, searchTerm, statusFilter, priorityFilter, assigneeFilter, projectFilter, sortBy]);
+  }, [visibleTasks, searchTerm, statusFilter, priorityFilter, assigneeFilter, projectFilter, sortBy]);
 
   const projects = useMemo(() => {
     const unique = new Set(tasks.filter((t) => t.project).map((t) => t.project));
@@ -129,16 +129,6 @@ export function ListView() {
   const handleBulkStatusUpdate = (newStatus: TaskStatus) => {
     selectedTasks.forEach((taskId) => {
       storage.updateTask(taskId, { status: newStatus });
-    });
-    setSelectedTasks(new Set());
-  };
-
-  const handleBulkDelete = () => {
-    selectedTasks.forEach((taskId) => {
-      const task = tasks.find((t) => t.id === taskId);
-      if (task) {
-        storage.setTasks(tasks.filter((t) => t.id !== taskId));
-      }
     });
     setSelectedTasks(new Set());
   };
@@ -244,14 +234,6 @@ export function ListView() {
                 <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBulkDelete}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              Delete
-            </Button>
           </div>
         </motion.div>
       )}
@@ -347,13 +329,6 @@ export function ListView() {
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setDeleteTaskId(task.id)}
-                        className="p-1 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </td>
                   </motion.tr>
                 );
@@ -370,35 +345,13 @@ export function ListView() {
       </motion.div>
 
       {/* Task Details Dialog */}
-      {detailsTaskId && tasks.find((t) => t.id === detailsTaskId) && (
+      {detailsTaskId && visibleTasks.find((t) => t.id === detailsTaskId) && (
         <TaskDetailsDialog
-          task={tasks.find((t) => t.id === detailsTaskId) || null}
+          task={visibleTasks.find((t) => t.id === detailsTaskId) || null}
           open={!!detailsTaskId}
           onOpenChange={(open) => !open && setDetailsTaskId(null)}
         />
       )}
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteTaskId} onOpenChange={(open) => !open && setDeleteTaskId(null)}>
-        <AlertDialogContent>
-          <AlertDialogTitle>Delete task?</AlertDialogTitle>
-          <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-          <div className="flex justify-end gap-3">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (deleteTaskId) {
-                  storage.setTasks(tasks.filter((t) => t.id !== deleteTaskId));
-                  setDeleteTaskId(null);
-                }
-              }}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

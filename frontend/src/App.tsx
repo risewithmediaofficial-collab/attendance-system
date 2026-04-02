@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -34,6 +34,7 @@ const queryClient = new QueryClient();
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const role = storage.getCurrentRole();
   
   // Check if we're in focus mode
   const isFocusMode = location.pathname.startsWith("/focus");
@@ -74,7 +75,7 @@ function AnimatedRoutes() {
           <Route path="/calendar" element={<CalendarView />} />
           <Route path="/activity" element={<ActivityTimeline />} />
           <Route path="/tasks" element={<Tasks />} />
-          <Route path="/my-work" element={<MyWork />} />
+          <Route path="/my-work" element={role === "Admin" ? <Navigate to="/board" replace /> : <MyWork />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/reports" element={<WorkReports />} />
           <Route path="/members" element={<Members />} />

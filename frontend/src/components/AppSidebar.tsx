@@ -32,15 +32,18 @@ const NavItemComponent = memo(({ item, active, collapsed }: NavItemProps) => {
         to={item.url}
         end={item.url === "/"}
         className={cn(
-          "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-150 relative overflow-hidden group",
-          active ? "text-black bg-black/10 border border-black/15" : "text-black/65 hover:text-black/80"
+          "relative overflow-hidden group transition-colors duration-150",
+          collapsed
+            ? "mx-auto h-11 w-11 rounded-xl flex items-center justify-center"
+            : "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold",
+          active ? "text-black bg-black/10 border border-black/15" : "text-black/65 hover:text-black/80 hover:bg-black/5"
         )}
       >
-        {active && (
+        {active && !collapsed && (
           <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-black rounded-full" />
         )}
 
-        <div className="shrink-0 ml-1">
+        <div className={cn("shrink-0", !collapsed && "ml-1")}>
           <item.icon
             className="h-4.5 w-4.5"
             style={{ color: active ? "#111111" : "rgba(0,0,0,0.55)" }}
@@ -66,7 +69,6 @@ export function AppSidebar({ onLogout, collapsed, onToggle }: Props) {
   const items = useMemo(() => {
     const baseItems: NavItem[] = [
       { title: "Dashboard", url: "/", icon: LayoutDashboard },
-      { title: "My Work", url: "/my-work", icon: CheckCircle2 },
       { title: "Attendance", url: "/attendance", icon: CalendarCheck },
       { title: "Board", url: "/board", icon: KanbanSquare },
       { title: "List View", url: "/list", icon: List },
@@ -75,6 +77,10 @@ export function AppSidebar({ onLogout, collapsed, onToggle }: Props) {
       { title: "Work Reports", url: "/reports", icon: FileText },
       { title: "Performance", url: "/performance", icon: TrendingUp },
     ];
+
+    if (role !== "Admin") {
+      baseItems.splice(1, 0, { title: "My Work", url: "/my-work", icon: CheckCircle2 });
+    }
     
     if (role === "Admin") {
       baseItems.push(
@@ -121,7 +127,14 @@ export function AppSidebar({ onLogout, collapsed, onToggle }: Props) {
         )}
       </motion.div>
 
-      <nav className="flex-1 py-5 px-3 space-y-1 overflow-y-auto">
+      <nav
+        className={cn(
+          "flex-1 py-5 space-y-1 overflow-y-auto",
+          collapsed
+            ? "px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "px-3 [scrollbar-width:thin]"
+        )}
+      >
         {!collapsed && (
           <p className="px-3 mb-3 text-[10px] font-bold uppercase tracking-widest text-black/50">
             Navigation

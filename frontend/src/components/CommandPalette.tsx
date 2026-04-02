@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { storage } from "@/lib/storage";
 
 interface CommandItem {
   id: string;
@@ -20,6 +21,7 @@ export function CommandPalette() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(0);
   const navigate = useNavigate();
+  const role = storage.getCurrentRole();
 
   const commands: CommandItem[] = [
     {
@@ -90,7 +92,9 @@ export function CommandPalette() {
     },
   ];
 
-  const filtered = commands.filter(
+  const roleAwareCommands = role === "Admin" ? commands.filter((cmd) => cmd.id !== "mywork") : commands;
+
+  const filtered = roleAwareCommands.filter(
     (cmd) =>
       cmd.label.toLowerCase().includes(search.toLowerCase()) ||
       cmd.description.toLowerCase().includes(search.toLowerCase())
