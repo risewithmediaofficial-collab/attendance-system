@@ -258,4 +258,128 @@ export const remoteStorageImpl = {
     });
     applyBootstrap(data, getStoredUserId());
   },
+
+  // ========== NEW TASK METHODS (ClickUp Features) ==========
+
+  async updateTask(id: string, updates: Partial<any>): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async addSubtask(taskId: string, title: string): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/tasks/${taskId}/subtasks`, {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async updateSubtask(taskId: string, subtaskId: string, updates: Partial<any>): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/tasks/${taskId}/subtasks/${subtaskId}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/tasks/${taskId}/subtasks/${subtaskId}`, {
+      method: "DELETE",
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async addChecklistItem(taskId: string, text: string): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/tasks/${taskId}/checklist`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async updateChecklistItem(taskId: string, itemId: string, updates: Partial<any>): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/tasks/${taskId}/checklist/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async deleteChecklistItem(taskId: string, itemId: string): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/tasks/${taskId}/checklist/${itemId}`, {
+      method: "DELETE",
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async saveTimeTracking(taskId: string, minutes: number): Promise<void> {
+    const data = await apiJson<BootstrapData>(`/tasks/${taskId}/time/stop`, {
+      method: "POST",
+      body: JSON.stringify({ minutes }),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async getActivityFeed(): Promise<any[]> {
+    return apiJson<any[]>("/activity", { method: "GET" });
+  },
+
+  async addComment(taskId: string, text: string): Promise<void> {
+    const data = await apiJson<any>(`/tasks/${taskId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async deleteComment(taskId: string, commentId: string): Promise<void> {
+    const data = await apiJson<any>(`/tasks/${taskId}/comments/${commentId}`, {
+      method: "DELETE",
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async sendTaskMessage(taskId: string, text: string, isAdmin?: boolean): Promise<void> {
+    const data = await apiJson<any>(`/tasks/${taskId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ text, isAdmin }),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async getDailyStatus(memberId: string, date: string): Promise<any> {
+    return apiJson<any>(`/daily-status/${memberId}/${date}`, { method: "GET" });
+  },
+
+  async submitDailyStatus(data: {
+    memberId: string;
+    date: string;
+    completedToday: string;
+    pendingTasks: string[];
+    notes: string;
+  }): Promise<void> {
+    await apiJson<any>("/daily-status", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async reviewTaskCompletion(
+    taskId: string,
+    status: "approved" | "rejected",
+    rejectionReason?: string
+  ): Promise<void> {
+    const data = await apiJson<any>(`/tasks/${taskId}/review`, {
+      method: "POST",
+      body: JSON.stringify({ status, rejectionReason }),
+    });
+    applyBootstrap(data, getStoredUserId());
+  },
+
+  async getPendingReviews(): Promise<any[]> {
+    return apiJson<any[]>("/tasks/reviews/pending", { method: "GET" });
+  },
 };

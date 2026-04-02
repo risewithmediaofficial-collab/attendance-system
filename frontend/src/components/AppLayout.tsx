@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { storage } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 
 interface Props {
   children: React.ReactNode;
@@ -121,20 +122,9 @@ export function AppLayout({ children, onLogout }: Props) {
         style={{ marginLeft: sidebarWidth }}
       >
         <header
-          className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-6 lg:px-8"
-          style={{
-            background: "rgba(250,252,255,0.54)",
-            backdropFilter: "blur(18px)",
-            WebkitBackdropFilter: "blur(18px)",
-            borderBottom: "1px solid rgba(255,255,255,0.58)",
-            boxShadow: "0 10px 28px rgba(26,32,44,0.08), 0 1px 0 rgba(255,255,255,0.7) inset",
-          }}
+          className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-6 lg:px-8 bg-white/50 backdrop-blur-lg border-b border-white/80"
         >
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-3"
-          >
+          <div className="flex items-center gap-3">
             {isMobile && (
               <Button
                 variant="ghost"
@@ -146,23 +136,19 @@ export function AppLayout({ children, onLogout }: Props) {
               </Button>
             )}
             <div className="hidden sm:block">
-              <p className="text-xs font-bold tracking-widest uppercase" style={{ color: "rgba(0,0,0,0.52)" }}>
+              <p className="text-xs font-bold tracking-widest uppercase text-black/50">
                 Management Platform
               </p>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-3"
-          >
-            <motion.div whileHover={{ scale: 1.05 }} className="relative">
+          <div className="flex items-center gap-3">
+            <div className="relative">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setNotifOpen(true)}
-                className="rounded-xl hover:bg-black/5"
+                className="rounded-xl hover:bg-black/5 transition-colors"
               >
                 {unreadCount > 0
                   ? <BellDot className="h-5 w-5 text-black/80" />
@@ -171,8 +157,7 @@ export function AppLayout({ children, onLogout }: Props) {
               </Button>
               {unreadCount > 0 && (
                 <div
-                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
-                  style={{ background: "linear-gradient(135deg,#111111,#4b5563)", boxShadow: "0 2px 8px rgba(0,0,0,0.36)" }}
+                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center bg-black/80"
                 >
                   {unreadCount}
                 </div>
@@ -180,12 +165,7 @@ export function AppLayout({ children, onLogout }: Props) {
 
               <Dialog open={notifOpen} onOpenChange={setNotifOpen}>
                 <DialogContent
-                  className="max-w-md rounded-2xl"
-                  style={{
-                    background: "linear-gradient(145deg,rgba(255,255,255,0.95),rgba(245,245,246,0.92))",
-                    border: "1px solid rgba(0,0,0,0.1)",
-                    backdropFilter: "blur(28px)",
-                  }}
+                  className="max-w-md rounded-2xl bg-white/95 backdrop-blur-lg border border-black/10"
                 >
                   <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-foreground">Notifications</DialogTitle>
@@ -201,11 +181,10 @@ export function AppLayout({ children, onLogout }: Props) {
                         return (
                           <div
                             key={n.key}
-                            className="p-3.5 rounded-xl border transition-all duration-200"
-                            style={{
-                              background: isRead ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.06)",
-                              borderColor: isRead ? "rgba(0,0,0,0.1)" : "rgba(0,0,0,0.18)",
-                            }}
+                            className={cn(
+                              "p-3.5 rounded-xl border transition-colors",
+                              isRead ? "bg-white/50 border-black/10" : "bg-black/5 border-black/15"
+                            )}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
@@ -233,25 +212,18 @@ export function AppLayout({ children, onLogout }: Props) {
                   </div>
                 </DialogContent>
               </Dialog>
-            </motion.div>
+            </div>
 
-            <div className="flex items-center gap-2.5 pl-3 border-l" style={{ borderColor: "rgba(0,0,0,0.12)" }}>
+            <div className="flex items-center gap-2.5 pl-3 border-l border-black/10">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-semibold text-foreground">{member?.name ?? role}</p>
                 <p className="text-xs text-muted-foreground">{role}</p>
               </div>
-              <div
-                className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: "linear-gradient(135deg,rgba(0,0,0,0.16),rgba(0,0,0,0.08))",
-                  border: "1px solid rgba(0,0,0,0.2)",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
-                }}
-              >
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-black/10 border border-black/15">
                 <User className="h-4 w-4 text-white" />
               </div>
             </div>
-          </motion.div>
+          </div>
         </header>
 
         <main className="flex-1 overflow-auto px-3 py-3 md:px-5 md:py-4">

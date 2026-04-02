@@ -336,7 +336,7 @@ export default function Attendance() {
             <TabsTrigger value="pending" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">
               Pending Approvals
               {records.filter((r) => r.approvalStatus === "Pending").length > 0 && (
-                <Badge className="ml-2 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center p-0 text-xs">
+                <Badge className="ml-2 bg-gray-600 text-white rounded-full h-5 w-5 flex items-center justify-center p-0 text-xs">
                   {records.filter((r) => r.approvalStatus === "Pending").length}
                 </Badge>
               )}
@@ -839,7 +839,7 @@ export default function Attendance() {
             <Button variant="outline" onClick={() => (setRejectingId(null), setRejectionReason(""))} className="rounded-xl">
               Cancel
             </Button>
-            <Button onClick={confirmReject} className="rounded-xl bg-red-500 hover:bg-red-600">
+            <Button onClick={confirmReject} className="rounded-xl bg-gray-700 hover:bg-gray-800 text-white">
               Reject
             </Button>
           </DialogFooter>

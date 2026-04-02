@@ -24,7 +24,7 @@ function calcAttendancePct(memberId: string, days: string[], attendance: Attenda
 }
 
 function calcTaskCompletionPct(memberId: string, tasks: Task[]) {
-  const relevant = tasks.filter((t) => t.assignedTo === memberId);
+  const relevant = tasks.filter((t) => isTaskAssignedToMember(t, memberId));
   if (relevant.length === 0) return 0;
   const completed = relevant.filter((t) => t.status === "Completed").length;
   return +(completed / relevant.length * 100).toFixed(1);
@@ -36,6 +36,14 @@ function calcScore(attPct: number, taskPct: number) {
 }
 
 const donutColors = ["hsl(0, 0%, 18%)", "hsl(0, 0%, 38%)", "hsl(0, 0%, 56%)"];
+
+function assigneeIds(assignedTo: Task["assignedTo"]): string[] {
+  return Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+}
+
+function isTaskAssignedToMember(task: Task, memberId: string): boolean {
+  return assigneeIds(task.assignedTo).includes(memberId);
+}
 
 export default function Performance() {
   const role = storage.getCurrentRole();
@@ -66,8 +74,8 @@ export default function Performance() {
       const attPct = calcAttendancePct(m.id, attendanceDays, attendance, holidays);
       const taskPct = calcTaskCompletionPct(m.id, tasks);
       const score = calcScore(attPct, taskPct);
-      const tasksAssigned = tasks.filter((t) => t.assignedTo === m.id).length;
-      const tasksCompleted = tasks.filter((t) => t.assignedTo === m.id && t.status === "Completed").length;
+      const tasksAssigned = tasks.filter((t) => isTaskAssignedToMember(t, m.id)).length;
+      const tasksCompleted = tasks.filter((t) => isTaskAssignedToMember(t, m.id) && t.status === "Completed").length;
       const presentDays = attendanceDays.filter((d) => !isHoliday(d, holidays) && attendance.some((a) => a.memberId === m.id && a.date === d)).length;
       return {
         member: m,
@@ -100,7 +108,7 @@ export default function Performance() {
 
   const donutData = useMemo(() => {
     const relevantMemberIds = new Set(targetMembers.map((m) => m.id));
-    const relTasks = tasks.filter((t) => relevantMemberIds.has(t.assignedTo));
+    const relTasks = tasks.filter((t) => assigneeIds(t.assignedTo).some((id) => relevantMemberIds.has(id)));
     const completed = relTasks.filter((t) => t.status === "Completed").length;
     const other = Math.max(0, relTasks.length - completed);
     return [

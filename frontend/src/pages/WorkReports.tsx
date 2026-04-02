@@ -38,16 +38,20 @@ export default function WorkReports() {
   const [filterDueTo, setFilterDueTo] = useState("");
 
   const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
+  const assigneeIds = (assignedTo: string | string[]) =>
+    Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+  const assigneeLabel = (assignedTo: string | string[]) =>
+    assigneeIds(assignedTo).map(getMemberName).join(", ");
 
   const visibleTasks = useMemo(() => {
     let list = [...tasks];
     if (role !== "Admin") {
       if (!me) return [];
-      list = list.filter((t) => t.assignedTo === me.id);
+      list = list.filter((t) => assigneeIds(t.assignedTo).includes(me.id));
     }
     if (filterStatus !== "all") list = list.filter((t) => t.status === filterStatus);
     if (filterPriority !== "all") list = list.filter((t) => t.priority === filterPriority);
-    if (filterMember !== "all") list = list.filter((t) => t.assignedTo === filterMember);
+    if (filterMember !== "all") list = list.filter((t) => assigneeIds(t.assignedTo).includes(filterMember));
     if (filterDueFrom) list = list.filter((t) => t.deadline >= filterDueFrom);
     if (filterDueTo) list = list.filter((t) => t.deadline <= filterDueTo);
     if (search.trim()) {
@@ -56,7 +60,7 @@ export default function WorkReports() {
         (t) =>
           t.title.toLowerCase().includes(s) ||
           (t.description || "").toLowerCase().includes(s) ||
-          getMemberName(t.assignedTo).toLowerCase().includes(s),
+          assigneeLabel(t.assignedTo).toLowerCase().includes(s),
       );
     }
     return list.sort((a, b) => {
@@ -67,7 +71,7 @@ export default function WorkReports() {
   }, [tasks, role, me, filterStatus, filterPriority, filterMember, filterDueFrom, filterDueTo, search, members]);
 
   const stats = useMemo(() => {
-    const base = role === "Admin" ? tasks : me ? tasks.filter((t) => t.assignedTo === me.id) : [];
+    const base = role === "Admin" ? tasks : me ? tasks.filter((t) => assigneeIds(t.assignedTo).includes(me.id)) : [];
     return {
       total: base.length,
       assigned: base.filter((t) => t.status === "Assigned").length,
@@ -82,7 +86,7 @@ export default function WorkReports() {
       `"${(t.title || "").replace(/"/g, '""')}"`,
       t.priority,
       t.deadline,
-      `"${getMemberName(t.assignedTo).replace(/"/g, '""')}"`,
+      `"${assigneeLabel(t.assignedTo).replace(/"/g, '""')}"`,
       t.status,
       `"${(t.description || "").replace(/"/g, '""')}"`,
       format(new Date(t.updatedAt), "yyyy-MM-dd HH:mm"),
@@ -274,7 +278,7 @@ export default function WorkReports() {
                       <Badge className={cn("text-xs font-semibold", priorityBadgeClass(t.priority))}>{t.priority}</Badge>
                     </TableCell>
                     <TableCell className="text-sm font-mono text-foreground/80 whitespace-nowrap">{t.deadline}</TableCell>
-                    <TableCell className="text-sm font-medium">{getMemberName(t.assignedTo)}</TableCell>
+                    <TableCell className="text-sm font-medium">{assigneeLabel(t.assignedTo)}</TableCell>
                     <TableCell>
                       <span className={cn("text-xs font-semibold", statusBadgeClass(t.status))}>{t.status}</span>
                     </TableCell>

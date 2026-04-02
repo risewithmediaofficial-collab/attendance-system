@@ -124,14 +124,14 @@ function DraggableTaskCard({
 function KanbanColumn({
   status,
   tasks,
-  memberName,
+  memberNames,
   showAssignee,
   showStatusSelect,
   onStatusChange,
 }: {
   status: TaskStatus;
   tasks: Task[];
-  memberName: (id: string) => string;
+  memberNames: (assignedTo: Task["assignedTo"]) => string;
   showAssignee: boolean;
   showStatusSelect: (task: Task) => boolean;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
@@ -161,7 +161,7 @@ function KanbanColumn({
               onStatusChange={onStatusChange}
               memberLine={
                 showAssignee ? (
-                  <div className="text-xs text-muted-foreground">To: {memberName(t.assignedTo)}</div>
+                  <div className="text-xs text-muted-foreground">To: {memberNames(t.assignedTo)}</div>
                 ) : null
               }
             />
@@ -182,6 +182,14 @@ export default function Board() {
   const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  // Refresh tasks when component mounts to ensure cache is hydrated
+  useEffect(() => {
+    const refreshedTasks = storage.getTasks();
+    if (refreshedTasks.length > 0) {
+      setTasks(refreshedTasks);
+    }
+  }, []);
 
   useEffect(() => {
     storage.setTasks(tasks);
@@ -213,9 +221,15 @@ export default function Board() {
   const notifRoleMembers = members.filter((m) => (m.role ?? "Intern") === notifRoleTarget);
   const [notifMemberId, setNotifMemberId] = useState<"all" | string>("all");
 
+  const assigneeIds = (assignedTo: Task["assignedTo"]) =>
+    Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+
+  const isAssignedToMember = (task: Task, memberId?: string) =>
+    !!memberId && assigneeIds(task.assignedTo).includes(memberId);
+
   const visibleTasks = useMemo(() => {
     if (role === "Admin") return tasks;
-    return tasks.filter((t) => t.assignedTo === me?.id);
+    return tasks.filter((t) => isAssignedToMember(t, me?.id));
   }, [tasks, role, me?.id]);
 
   const visibleNotifications = useMemo(() => {
@@ -225,6 +239,8 @@ export default function Board() {
   }, [notifications, role, me]);
 
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
+  const memberNames = (assignedTo: Task["assignedTo"]) =>
+    assigneeIds(assignedTo).map(memberName).join(", ");
 
   const assignTask = () => {
     if (role !== "Admin") return;
@@ -299,11 +315,11 @@ export default function Board() {
     );
   };
 
-  const canEditTask = (t: Task) => role === "Admin" || t.assignedTo === me?.id;
+  const canEditTask = (t: Task) => role === "Admin" || isAssignedToMember(t, me?.id);
 
   const handleBoardDragStart = ({ active }: DragStartEvent) => {
     const id = String(active.id);
-    const list = role === "Admin" ? tasks : tasks.filter((t) => t.assignedTo === me?.id);
+    const list = role === "Admin" ? tasks : tasks.filter((t) => isAssignedToMember(t, me?.id));
     setActiveDragTask(list.find((t) => t.id === id) ?? null);
   };
 
@@ -315,7 +331,7 @@ export default function Board() {
     const taskId = String(active.id);
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === next) return;
-    if (role !== "Admin" && task.assignedTo !== me?.id) return;
+    if (role !== "Admin" && !isAssignedToMember(task, me?.id)) return;
     updateTaskStatus(taskId, next);
   };
 
@@ -405,7 +421,7 @@ export default function Board() {
             </Card>
           )}
 
-          <div className="overflow-x-auto pb-1 md:pb-0">
+          <div className="overflow-x-auto pb-2 -mx-3 px-3">
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -413,13 +429,13 @@ export default function Board() {
               onDragEnd={handleBoardDragEnd}
               onDragCancel={handleBoardDragCancel}
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full md:min-w-[900px] items-stretch">
+              <div className="grid gap-4 min-w-max md:min-w-fit items-stretch" style={{ gridTemplateColumns: "repeat(3, minmax(320px, 1fr))" }}>
                 {columns.map((col) => (
                   <KanbanColumn
                     key={col}
                     status={col}
                     tasks={visibleTasks.filter((t) => t.status === col)}
-                    memberName={memberName}
+                    memberNames={memberNames}
                     showAssignee={role === "Admin"}
                     showStatusSelect={canEditTask}
                     onStatusChange={updateTaskStatus}
@@ -433,7 +449,7 @@ export default function Board() {
                       task={activeDragTask}
                       memberLine={
                         role === "Admin" ? (
-                          <div className="text-xs text-muted-foreground">To: {memberName(activeDragTask.assignedTo)}</div>
+                          <div className="text-xs text-muted-foreground">To: {memberNames(activeDragTask.assignedTo)}</div>
                         ) : null
                       }
                     />

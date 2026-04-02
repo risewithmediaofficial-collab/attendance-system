@@ -64,23 +64,106 @@ export interface WorkReport {
 export type TaskPriority = "Low" | "Medium" | "High";
 export type TaskStatus = "Assigned" | "In Progress" | "Completed";
 
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: number;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+export interface TaskReminder {
+  id: string;
+  date: string;
+  time: string;
+}
+
+export interface Comment {
+  id: string;
+  taskId: string;
+  memberId: string; // ID of commenter
+  text: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+export interface TaskMessage {
+  id: string;
+  taskId: string;
+  senderId: string;
+  senderRole: Role;
+  text: string;
+  taskSnapshot?: {
+    title: string;
+    status: TaskStatus;
+    priority: TaskPriority;
+  };
+  createdAt: number;
+  isAdmin?: boolean;
+}
+
+export interface DailyStatus {
+  id: string;
+  memberId: string;
+  date: string; // YYYY-MM-DD format
+  completedToday: string; // What they completed
+  pendingTasks: string[]; // Pending task IDs
+  notes: string; // Additional notes
+  submittedAt: number;
+}
+
+export interface TaskReview {
+  status: "pending" | "approved" | "rejected";
+  rejectionReason?: string;
+  reviewedBy?: string;
+  reviewedAt?: number;
+}
+
 export interface Task {
   id: string;
   title: string;
   description: string;
-  assignedTo: string;
+  assignedTo: string | string[]; // Support multiple assignees
   deadline: string;
   priority: TaskPriority;
   status: TaskStatus;
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
+  // New fields for ClickUp features
+  tags?: string[];
+  subtasks?: Subtask[];
+  checklist?: ChecklistItem[];
+  dependencies?: string[]; // Task IDs this depends on
+  project?: string;
+  isRecurring?: boolean;
+  recurringPattern?: "daily" | "weekly" | "biweekly" | "monthly";
+  isFavorite?: boolean;
+  timeSpent?: number; // in minutes
+  reminders?: TaskReminder[];
+  comments?: Comment[];
+  messages?: TaskMessage[]; // Task-specific messages/replies
+  review?: TaskReview; // Admin review status for completed tasks
 }
 
 export interface Holiday {
   id: string;
   date: string;
   reason: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  memberId: string;
+  action: string;
+  taskId?: string;
+  timestamp: number;
+  details?: string;
 }
 
 export interface AuthState {

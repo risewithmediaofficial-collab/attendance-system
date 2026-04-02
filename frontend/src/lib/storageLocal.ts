@@ -351,4 +351,213 @@ export const localStorageImpl = {
     const pending = get<PendingUser[]>("pendingUsers", []);
     localStorageImpl.setPendingUsers(pending.filter((p) => p.id !== id));
   },
+
+  // ========== NEW TASK METHODS (ClickUp Features) ==========
+
+  async updateTask(id: string, updates: Partial<any>): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const taskIndex = tasks.findIndex((t) => t.id === id);
+    if (taskIndex >= 0) {
+      tasks[taskIndex] = { ...tasks[taskIndex], ...updates, updatedAt: Date.now() };
+      set("tasks", tasks);
+    }
+  },
+
+  async addSubtask(taskId: string, title: string): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      if (!task.subtasks) task.subtasks = [];
+      task.subtasks.push({
+        id: generateId(),
+        title,
+        completed: false,
+        createdAt: Date.now(),
+      });
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async updateSubtask(taskId: string, subtaskId: string, updates: Partial<any>): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task && task.subtasks) {
+      const subtask = task.subtasks.find((s) => s.id === subtaskId);
+      if (subtask) {
+        Object.assign(subtask, updates);
+        task.updatedAt = Date.now();
+        set("tasks", tasks);
+      }
+    }
+  },
+
+  async deleteSubtask(taskId: string, subtaskId: string): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task && task.subtasks) {
+      task.subtasks = task.subtasks.filter((s) => s.id !== subtaskId);
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async addChecklistItem(taskId: string, text: string): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      if (!task.checklist) task.checklist = [];
+      task.checklist.push({
+        id: generateId(),
+        text,
+        completed: false,
+      });
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async updateChecklistItem(taskId: string, itemId: string, updates: Partial<any>): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task && task.checklist) {
+      const item = task.checklist.find((i) => i.id === itemId);
+      if (item) {
+        Object.assign(item, updates);
+        task.updatedAt = Date.now();
+        set("tasks", tasks);
+      }
+    }
+  },
+
+  async deleteChecklistItem(taskId: string, itemId: string): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task && task.checklist) {
+      task.checklist = task.checklist.filter((i) => i.id !== itemId);
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async saveTimeTracking(taskId: string, minutes: number): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      task.timeSpent = (task.timeSpent ?? 0) + minutes;
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async getActivityFeed(): Promise<any[]> {
+    // Return last 20 activities from localStorage
+    return [];
+  },
+
+  async addComment(taskId: string, text: string): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      if (!task.comments) task.comments = [];
+      const currentUser = this.getCurrentMember();
+      task.comments.push({
+        id: generateId(),
+        taskId,
+        memberId: currentUser?.id || "unknown",
+        text,
+        createdAt: Date.now(),
+      });
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async deleteComment(taskId: string, commentId: string): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task && task.comments) {
+      task.comments = task.comments.filter((c) => c.id !== commentId);
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async sendTaskMessage(taskId: string, text: string, isAdmin?: boolean): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    const currentUser = this.getCurrentMember();
+    if (task && currentUser) {
+      if (!task.messages) task.messages = [];
+      task.messages.push({
+        id: generateId(),
+        taskId,
+        senderId: currentUser.id,
+        senderRole: currentUser.role || "Intern",
+        text,
+        taskSnapshot: {
+          title: task.title,
+          status: task.status,
+          priority: task.priority,
+        },
+        createdAt: Date.now(),
+        isAdmin,
+      } as any);
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async getDailyStatus(memberId: string, date: string): Promise<any> {
+    const statuses = get<any[]>("dailyStatuses", []);
+    return statuses.find((s) => s.memberId === memberId && s.date === date) || null;
+  },
+
+  async submitDailyStatus(data: {
+    memberId: string;
+    date: string;
+    completedToday: string;
+    pendingTasks: string[];
+    notes: string;
+  }): Promise<void> {
+    const statuses = get<any[]>("dailyStatuses", []);
+    const existingIdx = statuses.findIndex((s) => s.memberId === data.memberId && s.date === data.date);
+    const statusRecord = {
+      id: generateId(),
+      ...data,
+      submittedAt: Date.now(),
+    };
+    if (existingIdx >= 0) {
+      statuses[existingIdx] = statusRecord;
+    } else {
+      statuses.push(statusRecord);
+    }
+    set("dailyStatuses", statuses);
+  },
+
+  async reviewTaskCompletion(
+    taskId: string,
+    status: "approved" | "rejected",
+    rejectionReason?: string
+  ): Promise<void> {
+    const tasks = get<Task[]>("tasks", []);
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      if (!task.review) task.review = { status: "pending" };
+      task.review.status = status;
+      task.review.rejectionReason = rejectionReason;
+      task.review.reviewedAt = Date.now();
+      task.review.reviewedBy = this.getCurrentMember()?.id;
+      if (status === "rejected") {
+        task.status = "In Progress";
+      }
+      task.updatedAt = Date.now();
+      set("tasks", tasks);
+    }
+  },
+
+  async getPendingReviews(): Promise<any[]> {
+    const tasks = get<Task[]>("tasks", []);
+    return tasks.filter((t) => t.status === "Completed" && (!t.review || t.review.status === "pending"));
+  },
 };
