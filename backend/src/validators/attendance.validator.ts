@@ -87,7 +87,7 @@ export const AttendanceHistorySchema = z.object({
     .optional()
     .default(10)
 }).refine(
-  (data) => new Date(data.startDate) <= new Date(data.endDate),
+  (data: any) => new Date(data.startDate) <= new Date(data.endDate),
   {
     message: 'Start date must be before or equal to end date',
     path: ['endDate']
@@ -170,13 +170,13 @@ export const CompanySettingsSchema = z.object({
     .array(z.enum(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']))
     .default(['Saturday', 'Sunday'])
 }).refine(
-  (data) => data.officeStartTime < data.officeEndTime,
+  (data: any) => data.officeStartTime < data.officeEndTime,
   {
     message: 'Office end time must be after office start time',
     path: ['officeEndTime']
   }
 ).refine(
-  (data) => data.officeEndTime < data.autoCheckoutTime,
+  (data: any) => data.officeEndTime < data.autoCheckoutTime,
   {
     message: 'Auto-checkout time must be after office end time',
     path: ['autoCheckoutTime']

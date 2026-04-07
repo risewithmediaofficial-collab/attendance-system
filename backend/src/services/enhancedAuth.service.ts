@@ -230,10 +230,10 @@ export class EnhancedAuthService {
 
       // Generate reset token (1 hour expiry)
       const { token, expiry } = this.emailService.generateToken();
-      expiry - (23 * 60 * 60 * 1000); // 1 hour instead of 24 hours
+      const resetExpiry = expiry - (23 * 60 * 60 * 1000); // 1 hour instead of 24 hours
 
       user.passwordResetToken = token;
-      user.passwordResetExpires = expiry;
+      user.passwordResetExpires = resetExpiry;
       await user.save();
 
       // Send reset email
@@ -413,3 +413,4 @@ export class EnhancedAuthService {
       };
     }
   }
+}

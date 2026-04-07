@@ -111,7 +111,7 @@ export const ChangePasswordSchema = z.object({
     .min(8, 'New password must be at least 8 characters')
     .regex(passwordPattern, 'Password must contain uppercase, lowercase, number, and special character')
 }).refine(
-  (data) => data.oldPassword !== data.newPassword,
+  (data: any) => data.oldPassword !== data.newPassword,
   {
     message: 'New password must be different from current password',
     path: ['newPassword']
