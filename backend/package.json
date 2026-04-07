@@ -5,10 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "npm install --include=dev && tsc",
     "start": "node dist/index.js",
     "build:prod": "tsc --project tsconfig.json",
-    "prebuild": "npm install",
     "postbuild": "echo 'Build completed successfully'",
     "db:seed": "tsx src/seed.ts"
   },
