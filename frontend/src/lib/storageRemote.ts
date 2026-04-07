@@ -143,7 +143,9 @@ export const remoteStorageImpl = {
   setUserNotifications: (n: UserNotification[]) => {
     if (!cache) return;
     cache.userNotifications = n;
-    void putJson("/notifications", n);
+    if (remoteStorageImpl.getCurrentRole() === "Admin") {
+      void putJson("/notifications", n);
+    }
   },
 
   getMembers: (): Member[] => cache?.members ?? [],
@@ -188,7 +190,9 @@ export const remoteStorageImpl = {
   setAttendance: (a: AttendanceRecord[]) => {
     if (!cache) return;
     cache.attendance = a;
-    void putJson("/attendance", a);
+    if (remoteStorageImpl.getCurrentRole() === "Admin") {
+      void putJson("/attendance", a);
+    }
   },
 
   getTasks: (): Task[] => cache?.tasks ?? [],
@@ -202,14 +206,18 @@ export const remoteStorageImpl = {
   setReports: (r: WorkReport[]) => {
     if (!cache) return;
     cache.reports = r;
-    void putJson("/reports", r);
+    if (remoteStorageImpl.getCurrentRole() === "Admin") {
+      void putJson("/reports", r);
+    }
   },
 
   getWorkReports: (): WorkReport[] => cache?.reports ?? [],
   setWorkReports: (w: WorkReport[]) => {
     if (!cache) return;
     cache.reports = w;
-    void putJson("/reports", w);
+    if (remoteStorageImpl.getCurrentRole() === "Admin") {
+      void putJson("/reports", w);
+    }
   },
 
   getHolidays: (): Holiday[] => cache?.holidays ?? [],
@@ -327,6 +335,20 @@ export const remoteStorageImpl = {
     return apiJson<any[]>("/activity", { method: "GET" });
   },
 
+  async getActivityLog(): Promise<any[]> {
+    return apiJson<any[]>("/activity", { method: "GET" });
+  },
+
+  async getTask(taskId: string): Promise<any | null> {
+    const cached = cache?.tasks.find((t) => t.id === taskId) ?? null;
+    if (cached) return cached;
+    const userId = getStoredUserId();
+    if (!userId) return null;
+    const data = await apiJson<BootstrapData>("/bootstrap");
+    applyBootstrap(data, userId);
+    return cache?.tasks.find((t) => t.id === taskId) ?? null;
+  },
+
   async addComment(taskId: string, text: string): Promise<void> {
     const data = await apiJson<any>(`/tasks/${taskId}/comments`, {
       method: "POST",
@@ -361,10 +383,11 @@ export const remoteStorageImpl = {
     pendingTasks: string[];
     notes: string;
   }): Promise<void> {
-    await apiJson<any>("/daily-status", {
+    const response = await apiJson<BootstrapData>("/daily-status", {
       method: "POST",
       body: JSON.stringify(data),
     });
+    applyBootstrap(response, getStoredUserId());
   },
 
   async reviewTaskCompletion(

@@ -28,8 +28,16 @@ export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
 
   const { taskStats, userInfo, allTasks, filteredTasks, tasksByProject, weeklyCompletions, overdueAlerts, insights } = useMemo(() => {
+    const role = storage.getCurrentRole();
     const currentMember = storage.getCurrentMember();
-    const allTasks = storage.getTasks() || [];
+    const teamTasks = storage.getTasks() || [];
+    const allTasks =
+      role === "Admin"
+        ? teamTasks
+        : teamTasks.filter((t) => {
+            const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+            return assignees.includes(currentMember?.id ?? "");
+          });
 
     // Task Statistics
     const tasksToday = allTasks.filter(t => t.deadline === today);
@@ -51,7 +59,10 @@ export default function Dashboard() {
     // Apply filters based on activeFilter
     let filtered = allTasks;
     if (activeFilter === "my-tasks") {
-      filtered = allTasks.filter(t => t.assignedTo === currentMember?.id);
+      filtered = allTasks.filter((t) => {
+        const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+        return assignees.includes(currentMember?.id ?? "");
+      });
     } else if (activeFilter === "high-priority") {
       filtered = allTasks.filter(t => t.priority === "High" && t.status !== "Completed");
     } else if (activeFilter === "overdue") {

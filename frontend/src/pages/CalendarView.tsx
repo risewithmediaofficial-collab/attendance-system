@@ -8,9 +8,20 @@ import { Badge } from "../components/ui/badge";
 import { TaskDetailsDialog } from "../components/TaskDetailsDialog";
 
 export function CalendarView() {
+  const role = storage.getCurrentRole();
+  const currentMember = storage.getCurrentMember();
   const tasks = storage.getTasks();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const visibleTasks = useMemo(() => {
+    if (role === "Admin") return tasks;
+    if (!currentMember?.id) return [];
+    return tasks.filter((task) => {
+      const assignees = Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo];
+      return assignees.includes(currentMember.id);
+    });
+  }, [tasks, role, currentMember?.id]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -18,8 +29,8 @@ export function CalendarView() {
 
   // Group tasks by date
   const tasksByDate = useMemo(() => {
-    const grouped = new Map<string, typeof tasks>();
-    tasks.forEach((task) => {
+    const grouped = new Map<string, typeof visibleTasks>();
+    visibleTasks.forEach((task) => {
       if (task.status !== "Completed") {
         const dateKey = task.deadline;
         if (!grouped.has(dateKey)) {
@@ -29,9 +40,9 @@ export function CalendarView() {
       }
     });
     return grouped;
-  }, [tasks]);
+  }, [visibleTasks]);
 
-  const getTasksForDate = (date: Date): typeof tasks => {
+  const getTasksForDate = (date: Date): typeof visibleTasks => {
     const dateString = format(date, "yyyy-MM-dd");
     return tasksByDate.get(dateString) || [];
   };
@@ -57,7 +68,7 @@ export function CalendarView() {
     }
   };
 
-  const selectedTask = selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) || null : null;
+  const selectedTask = selectedTaskId ? visibleTasks.find((t) => t.id === selectedTaskId) || null : null;
 
   return (
     <div className="min-h-screen bg-white p-4 md:p-6">

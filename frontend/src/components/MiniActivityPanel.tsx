@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Scroll, Clock, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { remoteStorageImpl } from "@/lib/storageRemote";
+import { storage } from "@/lib/storage";
 
 export interface ActivityLogEntry {
   id: string;
@@ -69,7 +69,7 @@ export function MiniActivityPanel({
     const loadActivities = async () => {
       try {
         setLoading(true);
-        const data = await remoteStorageImpl.getActivityLog();
+        const data = await storage.getActivityFeed();
 
         // Ensure timestamp is a valid string
         const formatted = (Array.isArray(data) ? data : data.activities || [])

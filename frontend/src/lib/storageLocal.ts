@@ -186,7 +186,13 @@ export const localStorageImpl = {
   setUsers: (u: User[]) => set("users", u),
   getPendingUsers: (): PendingUser[] => get<PendingUser[]>("pendingUsers", []),
   setPendingUsers: (p: PendingUser[]) => set("pendingUsers", p),
-  getUserNotifications: (): UserNotification[] => get<UserNotification[]>("userNotifications", []),
+  getUserNotifications: (): UserNotification[] => {
+    const all = get<UserNotification[]>("userNotifications", []);
+    if (localStorageImpl.getCurrentRole() === "Admin") return all;
+    const me = localStorageImpl.getCurrentMember();
+    if (!me?.id) return [];
+    return all.filter((n) => n.targetMemberIds.includes(me.id));
+  },
   setUserNotifications: (n: UserNotification[]) => set("userNotifications", n),
 
   getMembers: (): Member[] => {
@@ -242,16 +248,37 @@ export const localStorageImpl = {
     return true;
   },
 
-  getAttendance: () => get<AttendanceRecord[]>("attendance", []),
+  getAttendance: () => {
+    const all = get<AttendanceRecord[]>("attendance", []);
+    if (localStorageImpl.getCurrentRole() === "Admin") return all;
+    const me = localStorageImpl.getCurrentMember();
+    if (!me?.id) return [];
+    return all.filter((a) => a.memberId === me.id);
+  },
   setAttendance: (a: AttendanceRecord[]) => set("attendance", a),
 
-  getTasks: (): Task[] => get<Task[]>("tasks", []),
+  getTasks: (): Task[] => {
+    const all = get<Task[]>("tasks", []);
+    if (localStorageImpl.getCurrentRole() === "Admin") return all;
+    const me = localStorageImpl.getCurrentMember();
+    if (!me?.id) return [];
+    return all.filter((t) => {
+      const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+      return assignees.includes(me.id);
+    });
+  },
   setTasks: (t: Task[]) => set("tasks", t),
 
-  getReports: (): WorkReport[] => migrateReportsIfNeeded(),
+  getReports: (): WorkReport[] => {
+    const all = migrateReportsIfNeeded();
+    if (localStorageImpl.getCurrentRole() === "Admin") return all;
+    const me = localStorageImpl.getCurrentMember();
+    if (!me?.id) return [];
+    return all.filter((r) => r.memberId === me.id);
+  },
   setReports: (r: WorkReport[]) => set("reports", r),
 
-  getWorkReports: (): WorkReport[] => migrateReportsIfNeeded(),
+  getWorkReports: (): WorkReport[] => localStorageImpl.getReports(),
   setWorkReports: (w: WorkReport[]) => set("reports", w),
 
   getHolidays: (): Holiday[] => get<Holiday[]>("holidays", []),
@@ -451,8 +478,16 @@ export const localStorageImpl = {
   },
 
   async getActivityFeed(): Promise<any[]> {
-    // Return last 20 activities from localStorage
+    // Local mode does not persist a rich activity stream yet.
     return [];
+  },
+
+  async getActivityLog(): Promise<any[]> {
+    return [];
+  },
+
+  async getTask(taskId: string): Promise<Task | null> {
+    return localStorageImpl.getTasks().find((t) => t.id === taskId) ?? null;
   },
 
   async addComment(taskId: string, text: string): Promise<void> {

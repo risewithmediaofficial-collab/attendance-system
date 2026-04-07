@@ -10,15 +10,26 @@ const MemberSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// Performance indexes for Member
+MemberSchema.index({ role: 1 });
+MemberSchema.index({ name: 1 });
+
 const UserSchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
     memberId: { type: String, required: true },
     username: { type: String, required: true, unique: true },
     passwordHash: { type: String, required: true },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Number },
   },
   { _id: false },
 );
+
+// Performance indexes for User
+UserSchema.index({ memberId: 1 });
+UserSchema.index({ username: 1 });
+UserSchema.index({ resetPasswordToken: 1 });
 
 const PendingUserSchema = new mongoose.Schema(
   {
@@ -52,6 +63,12 @@ const AttendanceRecordSchema = new mongoose.Schema(
   },
   { _id: false },
 );
+
+// CRITICAL: Performance indexes for AttendanceRecord
+AttendanceRecordSchema.index({ memberId: 1, date: -1 }); // User's attendance history
+AttendanceRecordSchema.index({ date: -1 }); // Daily attendance reports
+AttendanceRecordSchema.index({ approvalStatus: 1 }); // Pending approvals
+AttendanceRecordSchema.index({ memberId: 1, approvalStatus: 1 }); // User's pending approvals
 
 const TaskSchema = new mongoose.Schema(
   {
@@ -122,6 +139,14 @@ const TaskSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// CRITICAL: Performance indexes for Task
+TaskSchema.index({ assignedTo: 1, status: 1 }); // User's tasks by status
+TaskSchema.index({ status: 1 }); // Task status reports
+TaskSchema.index({ project: 1 }); // Project-based tasks
+TaskSchema.index({ deadline: 1 }); // Overdue tasks
+TaskSchema.index({ assignedTo: 1, deadline: 1 }); // User's upcoming deadlines
+TaskSchema.index({ createdAt: -1 }); // Recent tasks
+
 const DailyStatusSchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
@@ -135,6 +160,10 @@ const DailyStatusSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// Performance indexes for DailyStatus
+DailyStatusSchema.index({ memberId: 1, date: -1 }); // User's daily status history
+DailyStatusSchema.index({ date: -1 }); // Daily status reports
+
 const HolidaySchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
@@ -143,6 +172,9 @@ const HolidaySchema = new mongoose.Schema(
   },
   { _id: false },
 );
+
+// Performance indexes for Holiday
+HolidaySchema.index({ date: 1 }); // Holiday lookup
 
 const WorkReportSchema = new mongoose.Schema(
   {
@@ -157,6 +189,10 @@ const WorkReportSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// Performance indexes for WorkReport
+WorkReportSchema.index({ memberId: 1, date: -1 }); // User's work reports
+WorkReportSchema.index({ date: -1 }); // Daily work reports
+
 const UserNotificationSchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
@@ -170,6 +206,11 @@ const UserNotificationSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// Performance indexes for UserNotification
+UserNotificationSchema.index({ targetMemberIds: 1, createdAt: -1 }); // User's notifications
+UserNotificationSchema.index({ targetRole: 1 }); // Role-based notifications
+UserNotificationSchema.index({ createdAt: -1 }); // Recent notifications
+
 const ActivityLogSchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
@@ -181,6 +222,11 @@ const ActivityLogSchema = new mongoose.Schema(
   },
   { _id: false },
 );
+
+// Performance indexes for ActivityLog
+ActivityLogSchema.index({ memberId: 1, timestamp: -1 }); // User's activity history
+ActivityLogSchema.index({ action: 1, timestamp: -1 }); // Action-based reports
+ActivityLogSchema.index({ timestamp: -1 }); // Recent activities
 
 export const Member = mongoose.model("Member", MemberSchema);
 export const User = mongoose.model("User", UserSchema);

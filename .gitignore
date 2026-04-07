@@ -7,16 +7,50 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+*/node_modules
+
+# Build outputs
 dist
 dist-ssr
-*.local
+build
+*/build
+*/dist
 
-# API secrets (use backend/.env.example for Atlas template)
+# Environment variables (CRITICAL - Never push these)
+.env
+.env.*
+!.env.example
 backend/.env
+backend/.env.*
 frontend/.env
-frontend/.env.development
+frontend/.env.*
+!.env.example
+
+# Local files
+*.local
+.cache
+.temp
+
+# API secrets and credentials
+backend/.env.production
+backend/.env.development
+backend/.env.password-reset
+backend/.env.enhanced
 frontend/.env.production
+frontend/.env.development
+
+# Upload directories
+uploads
+*/uploads
+temp
+*/temp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
 
 # Editor directories and files
 .vscode/*
@@ -29,4 +63,34 @@ frontend/.env.production
 *.sln
 *.sw?
 
+# Vite
 .vite
+
+# TypeScript
+*.tsbuildinfo
+
+# Test coverage
+coverage
+*.lcov
+
+# OS generated files
+Thumbs.db
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Cloudinary and other service credentials
+cloudinary.json
+service-account.json
+*.pem
+*.key
+*.crt
+
+# Backup files
+*.bak
+*.backup
+*.old

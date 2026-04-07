@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { storage } from "../lib/storage";
@@ -30,6 +30,8 @@ const actionConfig: Record<string, { icon: any; color: string; label: string }> 
 };
 
 export function ActivityTimeline() {
+  const role = storage.getCurrentRole();
+  const currentMember = storage.getCurrentMember();
   const tasks = storage.getTasks();
   const members = storage.getMembers();
   const [activities, setActivities] = useState<TimelineEntry[]>([]);
@@ -38,11 +40,20 @@ export function ActivityTimeline() {
   const [selectedAction, setSelectedAction] = useState<string>("All");
   const [searchTask, setSearchTask] = useState("");
 
+  const visibleTasks = useMemo(() => {
+    if (role === "Admin") return tasks;
+    if (!currentMember?.id) return [];
+    return tasks.filter((task) => {
+      const assignees = Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo];
+      return assignees.includes(currentMember.id);
+    });
+  }, [tasks, role, currentMember?.id]);
+
   useEffect(() => {
     // Build activities from tasks (changes/comments)
     const allActivities: TimelineEntry[] = [];
 
-    tasks.forEach((task) => {
+    visibleTasks.forEach((task) => {
       // Add comments as activities
       if (task.comments) {
         task.comments.forEach((comment) => {
@@ -88,7 +99,7 @@ export function ActivityTimeline() {
     // Sort by timestamp (newest first)
     allActivities.sort((a, b) => b.timestamp - a.timestamp);
     setActivities(allActivities);
-  }, [tasks, members]);
+  }, [visibleTasks, members]);
 
   // Filter activities
   useEffect(() => {

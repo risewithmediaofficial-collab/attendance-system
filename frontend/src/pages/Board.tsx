@@ -196,8 +196,10 @@ export default function Board() {
   }, [tasks]);
 
   useEffect(() => {
-    storage.setUserNotifications(notifications);
-  }, [notifications]);
+    if (role === "Admin") {
+      storage.setUserNotifications(notifications);
+    }
+  }, [notifications, role]);
 
   // Admin task form
   const [taskTitle, setTaskTitle] = useState("");

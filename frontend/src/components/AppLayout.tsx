@@ -61,7 +61,10 @@ export function AppLayout({ children, onLogout }: Props) {
     in2Days.setDate(in2Days.getDate() + 2);
 
     const deadlineTasks = tasks
-      .filter((t) => t.assignedTo === member.id && t.status !== "Completed")
+      .filter((t) => {
+        const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+        return assignees.includes(member.id) && t.status !== "Completed";
+      })
       .filter((t) => {
         const d = new Date(t.deadline + "T00:00:00");
         return d.getTime() >= now.getTime() && d.getTime() <= in2Days.getTime();
@@ -71,7 +74,10 @@ export function AppLayout({ children, onLogout }: Props) {
       .map((t) => ({ key: `task-deadline:${t.id}`, title: "Deadline approaching", description: `${t.title} - Due ${t.deadline}` }));
 
     const recentTasks = tasks
-      .filter((t) => t.assignedTo === member.id && t.status !== "Completed")
+      .filter((t) => {
+        const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+        return assignees.includes(member.id) && t.status !== "Completed";
+      })
       .filter((t) => Date.now() - t.createdAt <= 24 * 60 * 60 * 1000)
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 3)

@@ -86,8 +86,10 @@ export default function Attendance() {
   const [records, setRecords] = useState<AttendanceRecord[]>(attendance);
 
   useEffect(() => {
-    storage.setAttendance(records);
-  }, [records]);
+    if (role === "Admin") {
+      storage.setAttendance(records);
+    }
+  }, [records, role]);
 
   const today = toIsoDate(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(today);
@@ -252,6 +254,7 @@ export default function Attendance() {
         lunchStartTime: lunchStartTime || undefined,
         lunchEndTime: lunchEndTime || undefined,
       });
+      setRecords(storage.getAttendance());
       toast.success(role === "Admin" ? "Attendance recorded" : "Attendance submitted for approval");
       setOpen(false);
     } catch (error) {
@@ -262,6 +265,7 @@ export default function Attendance() {
   const handleApprove = async (id: string) => {
     try {
       await approveAttendance(id);
+      setRecords(storage.getAttendance());
       toast.success("Attendance approved");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to approve");
@@ -276,6 +280,7 @@ export default function Attendance() {
     if (!rejectingId) return;
     try {
       await rejectAttendance(rejectingId, rejectionReason);
+      setRecords(storage.getAttendance());
       toast.error("Attendance rejected");
       setRejectingId(null);
       setRejectionReason("");

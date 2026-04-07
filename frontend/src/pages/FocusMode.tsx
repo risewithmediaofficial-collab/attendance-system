@@ -5,7 +5,7 @@ import { X, Clock, AlertCircle, CheckCircle2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { remoteStorageImpl } from "@/lib/storageRemote";
+import { storage } from "@/lib/storage";
 import type { Task } from "@/lib/storageTypes";
 import { cn } from "@/lib/utils";
 
@@ -17,16 +17,11 @@ export default function FocusMode() {
   const [focusTime, setFocusTime] = useState(0);
 
   useEffect(() => {
-    const loadTask = async () => {
+    const loadTask = () => {
       if (!taskId) return;
-      try {
-        const data = await remoteStorageImpl.getTask(taskId);
-        setTask(data);
-      } catch (error) {
-        console.error("Failed to load task:", error);
-      } finally {
-        setLoading(false);
-      }
+      const found = storage.getTasks().find((t) => t.id === taskId) ?? null;
+      setTask(found);
+      setLoading(false);
     };
 
     loadTask();
@@ -100,8 +95,8 @@ export default function FocusMode() {
     allItemsTotal > 0 ? Math.round((allItemsCompleted / allItemsTotal) * 100) : 0;
 
   const getDueDateColor = () => {
-    if (!task.dueDate) return "text-gray-400";
-    const dueDate = new Date(task.dueDate);
+    if (!task.deadline) return "text-gray-400";
+    const dueDate = new Date(task.deadline);
     const now = new Date();
     if (dueDate < now && task.status !== "Completed") return "text-red-400";
     return "text-green-400";
@@ -189,7 +184,7 @@ export default function FocusMode() {
                         subtask.completed && "line-through text-muted-foreground"
                       )}
                     >
-                      {subtask.name}
+                      {subtask.title}
                     </span>
                   </div>
                 ))}
@@ -293,11 +288,11 @@ export default function FocusMode() {
                   </div>
                 </div>
               )}
-              {task.dueDate && (
+              {task.deadline && (
                 <div>
                   <span className="text-muted-foreground">Due Date</span>
                   <div className={cn("font-medium", getDueDateColor())}>
-                    {new Date(task.dueDate).toLocaleDateString("en-US", {
+                    {new Date(task.deadline).toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",
                       day: "numeric",

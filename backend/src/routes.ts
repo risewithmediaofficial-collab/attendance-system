@@ -14,8 +14,33 @@ import {
   WorkReport,
 } from "./models.js";
 import { authMiddleware, hashPassword, requireAdmin, signToken, verifyPassword } from "./auth.js";
+import type { AuthedRequest } from "./auth.js";
 
-async function bootstrapPayload() {
+type ViewerContext = {
+  role?: string;
+  memberId?: string;
+  userId?: string;
+};
+
+function assigneeIds(assignedTo: unknown): string[] {
+  return Array.isArray(assignedTo) ? assignedTo.map(String) : [String(assignedTo)];
+}
+
+function isAdminViewer(viewer?: ViewerContext): boolean {
+  return viewer?.role === "Admin";
+}
+
+function canAccessTask(task: { assignedTo: unknown }, viewer?: ViewerContext): boolean {
+  if (isAdminViewer(viewer)) return true;
+  if (!viewer?.memberId) return false;
+  return assigneeIds(task.assignedTo).includes(viewer.memberId);
+}
+
+function viewerFromReq(req: AuthedRequest): ViewerContext {
+  return { role: req.role, memberId: req.memberId, userId: req.userId };
+}
+
+async function bootstrapPayload(viewer?: ViewerContext) {
   const [members, users, pendingUsers, attendance, tasks, dailyStatuses, holidays, workReports, userNotifications] =
     await Promise.all([
       Member.find().lean(),
@@ -29,20 +54,50 @@ async function bootstrapPayload() {
       UserNotification.find().sort({ createdAt: -1 }).lean(),
     ]);
 
+  const adminView = isAdminViewer(viewer);
+  const memberId = viewer?.memberId ?? "";
+  const userId = viewer?.userId ?? "";
+
+  const visibleTasks = adminView ? tasks : tasks.filter((t) => canAccessTask(t, viewer));
+  const visibleAttendance = adminView ? attendance : attendance.filter((a) => a.memberId === memberId);
+  const visibleDailyStatuses = adminView ? dailyStatuses : dailyStatuses.filter((d) => d.memberId === memberId);
+  const visibleReports = adminView ? workReports : workReports.filter((r) => r.memberId === memberId);
+  const visibleNotifications = adminView
+    ? userNotifications
+    : userNotifications.filter((n) => Array.isArray(n.targetMemberIds) && n.targetMemberIds.includes(memberId));
+
+  const allowedMemberIds = new Set<string>();
+  if (memberId) allowedMemberIds.add(memberId);
+  if (adminView) {
+    members.forEach((m) => allowedMemberIds.add(m._id));
+  } else {
+    visibleTasks.forEach((t) => {
+      assigneeIds(t.assignedTo).forEach((id) => allowedMemberIds.add(id));
+      t.comments?.forEach((c: any) => allowedMemberIds.add(String(c.memberId)));
+      t.messages?.forEach((m: any) => allowedMemberIds.add(String(m.senderId)));
+    });
+    visibleAttendance.forEach((a) => allowedMemberIds.add(a.memberId));
+    visibleDailyStatuses.forEach((d: any) => allowedMemberIds.add(d.memberId));
+  }
+
+  const visibleMembers = members.filter((m) => allowedMemberIds.has(m._id));
+  const visibleUsers = adminView ? users : users.filter((u) => u._id === userId);
+  const visiblePendingUsers = adminView ? pendingUsers : [];
+
   return {
-    members: members.map((m) => ({
+    members: visibleMembers.map((m) => ({
       id: m._id,
       name: m.name,
       role: m.role as "Admin" | "Employee" | "Intern",
       avatarSeed: m.avatarSeed ?? undefined,
     })),
-    users: users.map((u) => ({
+    users: visibleUsers.map((u) => ({
       id: u._id,
       memberId: u.memberId,
       username: u.username,
       password: "",
     })),
-    pendingUsers: pendingUsers.map((p) => ({
+    pendingUsers: visiblePendingUsers.map((p) => ({
       id: p._id,
       name: p.name,
       username: p.username,
@@ -50,7 +105,7 @@ async function bootstrapPayload() {
       role: p.role as "Admin" | "Employee" | "Intern",
       createdAt: p.createdAt,
     })),
-    attendance: attendance.map((a) => ({
+    attendance: visibleAttendance.map((a) => ({
       id: a._id,
       date: a.date,
       memberId: a.memberId,
@@ -67,7 +122,7 @@ async function bootstrapPayload() {
       approvedBy: a.approvedBy ?? undefined,
       rejectionReason: a.rejectionReason ?? undefined,
     })),
-    tasks: tasks.map((t) => ({
+    tasks: visibleTasks.map((t) => ({
       id: t._id,
       title: t.title,
       description: t.description,
@@ -127,7 +182,7 @@ async function bootstrapPayload() {
       } : undefined,
       completedDate: t.completedDate ?? undefined,
     })),
-    dailyStatuses: dailyStatuses.map((d: any) => ({
+    dailyStatuses: visibleDailyStatuses.map((d: any) => ({
       id: d._id,
       memberId: d.memberId,
       date: d.date,
@@ -137,7 +192,7 @@ async function bootstrapPayload() {
       submittedAt: d.submittedAt,
     })),
     holidays: holidays.map((h) => ({ id: h._id, date: h.date, reason: h.reason })),
-    reports: workReports.map((r) => ({
+    reports: visibleReports.map((r) => ({
       id: r._id,
       date: r.date,
       memberId: r.memberId,
@@ -146,7 +201,7 @@ async function bootstrapPayload() {
       pending: r.pending,
       delivery: r.delivery as "Done" | "Not Done",
     })),
-    userNotifications: userNotifications.map((n) => ({
+    userNotifications: visibleNotifications.map((n) => ({
       id: n._id,
       title: n.title,
       message: n.message,
@@ -223,8 +278,8 @@ export function apiRouter(): Router {
     res.status(201).json({ ok: true });
   });
 
-  r.get("/bootstrap", authMiddleware, async (_req, res) => {
-    res.json(await bootstrapPayload());
+  r.get("/bootstrap", authMiddleware, async (req, res) => {
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   r.put("/members", authMiddleware, requireAdmin, async (req, res) => {
@@ -311,7 +366,7 @@ export function apiRouter(): Router {
       await User.deleteOne({ _id: userId }).catch(() => {});
       throw e;
     }
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   r.delete("/pending/:id", authMiddleware, requireAdmin, async (req, res) => {
@@ -325,57 +380,100 @@ export function apiRouter(): Router {
       res.status(400).json({ error: "Expected array" });
       return;
     }
+    const incomingTasks = (req.body as Record<string, unknown>[]).map((t) => ({
+      _id: String(t.id),
+      title: String(t.title),
+      description: String(t.description ?? ""),
+      assignedTo: Array.isArray(t.assignedTo) ? t.assignedTo : [String(t.assignedTo)],
+      deadline: String(t.deadline),
+      priority: String(t.priority),
+      status: String(t.status),
+      createdAt: Number(t.createdAt),
+      updatedAt: Number(t.updatedAt),
+      completedAt: t.completedAt != null ? Number(t.completedAt) : undefined,
+      tags: Array.isArray(t.tags) ? t.tags : undefined,
+      subtasks: Array.isArray(t.subtasks) ? (t.subtasks as any[]).map((s) => ({
+        _id: String(s.id),
+        title: String(s.title),
+        completed: Boolean(s.completed),
+        createdAt: Number(s.createdAt),
+      })) : undefined,
+      checklist: Array.isArray(t.checklist) ? (t.checklist as any[]).map((c) => ({
+        _id: String(c.id),
+        text: String(c.text),
+        completed: Boolean(c.completed),
+      })) : undefined,
+      dependencies: Array.isArray(t.dependencies) ? t.dependencies : undefined,
+      project: t.project ? String(t.project) : undefined,
+      isRecurring: Boolean(t.isRecurring),
+      recurringPattern: t.recurringPattern ? String(t.recurringPattern) : undefined,
+      isFavorite: Boolean(t.isFavorite),
+      timeSpent: t.timeSpent ? Number(t.timeSpent) : undefined,
+      reminders: Array.isArray(t.reminders) ? (t.reminders as any[]).map((r) => ({
+        _id: String(r.id),
+        date: String(r.date),
+        time: String(r.time),
+      })) : undefined,
+      comments: Array.isArray(t.comments) ? (t.comments as any[]).map((c) => ({
+        _id: String(c.id),
+        memberId: String(c.memberId),
+        text: String(c.text),
+        createdAt: Number(c.createdAt),
+        updatedAt: c.updatedAt ? Number(c.updatedAt) : undefined,
+      })) : undefined,
+    }));
+
+    if (req.role === "Admin") {
+      await Task.deleteMany({});
+      if (incomingTasks.length > 0) {
+        await Task.insertMany(incomingTasks);
+      }
+      res.json({ ok: true });
+      return;
+    }
+
+    if (!req.memberId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const memberId = req.memberId;
+    for (const task of incomingTasks) {
+      if (!assigneeIds(task.assignedTo).includes(memberId)) {
+        res.status(403).json({ error: "Cannot sync tasks outside your assignment scope" });
+        return;
+      }
+    }
+
+    const existing = await Task.find().lean();
+    const existingById = new Map(existing.map((t: any) => [t._id, t]));
+    const canAccess = (task: any) => assigneeIds(task.assignedTo).includes(memberId);
+
+    for (const task of incomingTasks) {
+      const existingTask = existingById.get(task._id);
+      if (existingTask && !canAccess(existingTask)) {
+        res.status(403).json({ error: "Cannot modify tasks outside your assignment scope" });
+        return;
+      }
+    }
+
+    const keepOtherTasks = existing.filter((t: any) => !canAccess(t));
+    const ownTasksMap = new Map(
+      existing.filter((t: any) => canAccess(t)).map((t: any) => [t._id, t]),
+    );
+    for (const task of incomingTasks) {
+      ownTasksMap.set(task._id, task);
+    }
+
+    const mergedTasks = [...keepOtherTasks, ...Array.from(ownTasksMap.values())];
     await Task.deleteMany({});
-    if (req.body.length > 0) {
-      await Task.insertMany(
-        (req.body as Record<string, unknown>[]).map((t) => ({
-          _id: String(t.id),
-          title: String(t.title),
-          description: String(t.description ?? ""),
-          assignedTo: Array.isArray(t.assignedTo) ? t.assignedTo : [String(t.assignedTo)],
-          deadline: String(t.deadline),
-          priority: String(t.priority),
-          status: String(t.status),
-          createdAt: Number(t.createdAt),
-          updatedAt: Number(t.updatedAt),
-          completedAt: t.completedAt != null ? Number(t.completedAt) : undefined,
-          tags: Array.isArray(t.tags) ? t.tags : undefined,
-          subtasks: Array.isArray(t.subtasks) ? (t.subtasks as any[]).map(s => ({
-            _id: String(s.id),
-            title: String(s.title),
-            completed: Boolean(s.completed),
-            createdAt: Number(s.createdAt),
-          })) : undefined,
-          checklist: Array.isArray(t.checklist) ? (t.checklist as any[]).map(c => ({
-            _id: String(c.id),
-            text: String(c.text),
-            completed: Boolean(c.completed),
-          })) : undefined,
-          dependencies: Array.isArray(t.dependencies) ? t.dependencies : undefined,
-          project: t.project ? String(t.project) : undefined,
-          isRecurring: Boolean(t.isRecurring),
-          recurringPattern: t.recurringPattern ? String(t.recurringPattern) : undefined,
-          isFavorite: Boolean(t.isFavorite),
-          timeSpent: t.timeSpent ? Number(t.timeSpent) : undefined,
-          reminders: Array.isArray(t.reminders) ? (t.reminders as any[]).map(r => ({
-            _id: String(r.id),
-            date: String(r.date),
-            time: String(r.time),
-          })) : undefined,
-          comments: Array.isArray(t.comments) ? (t.comments as any[]).map(c => ({
-            _id: String(c.id),
-            memberId: String(c.memberId),
-            text: String(c.text),
-            createdAt: Number(c.createdAt),
-            updatedAt: c.updatedAt ? Number(c.updatedAt) : undefined,
-          })) : undefined,
-        })),
-      );
+    if (mergedTasks.length > 0) {
+      await Task.insertMany(mergedTasks);
     }
     res.json({ ok: true });
   });
 
-  r.put("/attendance", authMiddleware, async (req, res) => {
+  r.put("/attendance", authMiddleware, requireAdmin, async (req, res) => {
     if (!Array.isArray(req.body)) {
       res.status(400).json({ error: "Expected array" });
       return;
@@ -423,7 +521,7 @@ export function apiRouter(): Router {
     res.json({ ok: true });
   });
 
-  r.put("/reports", authMiddleware, async (req, res) => {
+  r.put("/reports", authMiddleware, requireAdmin, async (req, res) => {
     if (!Array.isArray(req.body)) {
       res.status(400).json({ error: "Expected array" });
       return;
@@ -445,7 +543,7 @@ export function apiRouter(): Router {
     res.json({ ok: true });
   });
 
-  r.put("/notifications", authMiddleware, async (req, res) => {
+  r.put("/notifications", authMiddleware, requireAdmin, async (req, res) => {
     if (!Array.isArray(req.body)) {
       res.status(400).json({ error: "Expected array" });
       return;
@@ -502,6 +600,10 @@ export function apiRouter(): Router {
       res.status(400).json({ error: "Login time, logout time, and date required" });
       return;
     }
+    if (!req.memberId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
 
     // Check if date is in the past (only allow same day submission for non-admins)
     if (req.role !== "Admin") {
@@ -550,7 +652,7 @@ export function apiRouter(): Router {
       await AttendanceRecord.create(data);
     }
 
-    res.status(201).json(await bootstrapPayload());
+    res.status(201).json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Approve attendance request
@@ -567,7 +669,7 @@ export function apiRouter(): Router {
     record.approvedBy = req.memberId;
     await record.save();
 
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Reject attendance request
@@ -585,7 +687,7 @@ export function apiRouter(): Router {
     record.rejectionReason = reason || "";
     await record.save();
 
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // ========== NEW TASK ENDPOINTS (ClickUp Features) ==========
@@ -596,6 +698,14 @@ export function apiRouter(): Router {
     const task = await Task.findById(id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized to update this task" });
+      return;
+    }
+    if (req.role !== "Admin" && req.body.assignedTo != null) {
+      res.status(403).json({ error: "Only admin can reassign tasks" });
       return;
     }
 
@@ -621,7 +731,7 @@ export function apiRouter(): Router {
     }
 
     await task.save();
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Add subtask
@@ -632,6 +742,10 @@ export function apiRouter(): Router {
     const task = await Task.findById(id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
       return;
     }
 
@@ -646,7 +760,7 @@ export function apiRouter(): Router {
 
     task.updatedAt = Date.now();
     await task.save();
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Update subtask
@@ -656,6 +770,10 @@ export function apiRouter(): Router {
     const task = await Task.findById(id);
     if (!task || !task.subtasks) {
       res.status(404).json({ error: "Task or subtask not found" });
+      return;
+    }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
       return;
     }
 
@@ -670,7 +788,7 @@ export function apiRouter(): Router {
 
     task.updatedAt = Date.now();
     await task.save();
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Delete subtask
@@ -682,12 +800,16 @@ export function apiRouter(): Router {
       res.status(404).json({ error: "Task not found" });
       return;
     }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
+      return;
+    }
 
     const taskDoc = task as any;
     taskDoc.subtasks = (taskDoc.subtasks as any[]).filter((s) => s._id !== subtaskId);
     task.updatedAt = Date.now();
     await task.save();
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Add checklist item
@@ -698,6 +820,10 @@ export function apiRouter(): Router {
     const task = await Task.findById(id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
       return;
     }
 
@@ -711,7 +837,7 @@ export function apiRouter(): Router {
 
     task.updatedAt = Date.now();
     await task.save();
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Update checklist item
@@ -721,6 +847,10 @@ export function apiRouter(): Router {
     const task = await Task.findById(id);
     if (!task || !task.checklist) {
       res.status(404).json({ error: "Task or checklist not found" });
+      return;
+    }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
       return;
     }
 
@@ -735,7 +865,7 @@ export function apiRouter(): Router {
 
     task.updatedAt = Date.now();
     await task.save();
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Delete checklist item
@@ -747,12 +877,16 @@ export function apiRouter(): Router {
       res.status(404).json({ error: "Task not found" });
       return;
     }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
+      return;
+    }
 
     const taskDoc = task as any;
     taskDoc.checklist = (taskDoc.checklist as any[]).filter((i) => i._id !== itemId);
     task.updatedAt = Date.now();
     await task.save();
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Time tracking - Start
@@ -761,6 +895,10 @@ export function apiRouter(): Router {
     const task = await Task.findById(id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
       return;
     }
 
@@ -779,18 +917,23 @@ export function apiRouter(): Router {
       res.status(404).json({ error: "Task not found" });
       return;
     }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
+      return;
+    }
 
     task.timeSpent = (task.timeSpent ?? 0) + minutes;
     task.updatedAt = Date.now();
     await task.save();
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
-  // Get activity feed (last 100 activities)
+  // Get activity feed (recent activities, role-scoped)
   r.get("/activity", authMiddleware, async (req, res) => {
-    const activities = await ActivityLog.find()
+    const query = req.role === "Admin" ? {} : { memberId: req.memberId };
+    const activities = await ActivityLog.find(query)
       .sort({ timestamp: -1 })
-      .limit(100)
+      .limit(50)
       .lean();
 
     res.json(
@@ -830,6 +973,10 @@ export function apiRouter(): Router {
       res.status(404).json({ error: "Task not found" });
       return;
     }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
+      return;
+    }
 
     if (!text) {
       res.status(400).json({ error: "Comment text required" });
@@ -851,7 +998,7 @@ export function apiRouter(): Router {
     // Log activity
     await logActivity(req.memberId, "Added comment", id, text.substring(0, 100));
     
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Delete comment from task
@@ -861,6 +1008,10 @@ export function apiRouter(): Router {
     const task = await Task.findById(id);
     if (!task || !task.comments) {
       res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
       return;
     }
 
@@ -884,7 +1035,7 @@ export function apiRouter(): Router {
     // Log activity
     await logActivity(req.memberId, "Deleted comment", id);
 
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Send task message
@@ -900,6 +1051,10 @@ export function apiRouter(): Router {
     const task = await Task.findById(id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    if (!canAccessTask(task, viewerFromReq(req))) {
+      res.status(403).json({ error: "Not authorized for this task" });
       return;
     }
 
@@ -931,12 +1086,16 @@ export function apiRouter(): Router {
     // Log activity
     await logActivity(req.memberId, "Added task message", id);
 
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Get daily status
   r.get("/daily-status/:memberId/:date", authMiddleware, async (req, res) => {
     const { memberId, date } = req.params;
+    if (req.role !== "Admin" && memberId !== req.memberId) {
+      res.status(403).json({ error: "Not authorized to view this daily status" });
+      return;
+    }
 
     const dailyStatus = await DailyStatus.findOne({
       memberId,
@@ -961,10 +1120,19 @@ export function apiRouter(): Router {
 
   // Submit daily status
   r.post("/daily-status", authMiddleware, async (req, res) => {
-    const { memberId, date, completedToday, pendingTasks, notes } = req.body;
+    const requestedMemberId = String(req.body?.memberId ?? "");
+    const memberId = req.role === "Admin" ? requestedMemberId : req.memberId ?? "";
+    const date = String(req.body?.date ?? "");
+    const completedToday = String(req.body?.completedToday ?? "");
+    const pendingTasks = Array.isArray(req.body?.pendingTasks) ? req.body.pendingTasks : [];
+    const notes = req.body?.notes != null ? String(req.body.notes) : "";
 
     if (!memberId || !date || !completedToday) {
       res.status(400).json({ error: "memberId, date, and completedToday required" });
+      return;
+    }
+    if (req.role !== "Admin" && memberId !== req.memberId) {
+      res.status(403).json({ error: "Not authorized to submit for another member" });
       return;
     }
 
@@ -992,7 +1160,7 @@ export function apiRouter(): Router {
     // Log activity
     await logActivity(req.memberId, "Submitted daily status", undefined);
 
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Review task completion
@@ -1011,7 +1179,7 @@ export function apiRouter(): Router {
       return;
     }
 
-    if (status === "rejected" && !task.status) {
+    if (status === "rejected") {
       // Move task back to In Progress if rejected
       task.status = "In Progress";
     }
@@ -1031,7 +1199,7 @@ export function apiRouter(): Router {
     // Log activity
     await logActivity(req.memberId, `${status === "approved" ? "Approved" : "Rejected"} task completion`, id);
 
-    res.json(await bootstrapPayload());
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Get pending reviews
