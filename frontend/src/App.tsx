@@ -10,6 +10,9 @@ import { AppLayout } from "@/components/AppLayout";
 import { CommandPalette } from "@/components/CommandPalette";
 import { UndoProvider } from "@/lib/undo";
 import Login from "@/pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
+import VerifyEmail from "@/pages/VerifyEmail";
 import Dashboard from "@/pages/Dashboard";
 import Attendance from "@/pages/Attendance";
 import WorkReports from "@/pages/WorkReports";
@@ -93,6 +96,18 @@ function AnimatedRoutes() {
 const App = () => {
   const [ready, setReady] = useState(!useApiBackend);
   const [loggedIn, setLoggedIn] = useState(() => !useApiBackend && storage.isLoggedIn());
+  const [authPage, setAuthPage] = useState<"login" | "forgot" | "reset">("login");
+  const [resetToken, setResetToken] = useState<string | undefined>();
+
+  useEffect(() => {
+    // Check URL for password reset token
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (token) {
+      setAuthPage("reset");
+      setResetToken(token);
+    }
+  }, []);
 
   useEffect(() => {
     if (!useApiBackend) return;
@@ -123,6 +138,20 @@ const App = () => {
     setLoggedIn(false);
   };
 
+  const handleForgotPassword = () => {
+    setAuthPage("forgot");
+  };
+
+  const handleBackToLogin = () => {
+    setAuthPage("login");
+    setResetToken(undefined);
+  };
+
+  const handleResetSuccess = () => {
+    setAuthPage("login");
+    setResetToken(undefined);
+  };
+
   if (!ready) {
     return (
       <TooltipProvider>
@@ -136,11 +165,18 @@ const App = () => {
 
   if (!loggedIn) {
     return (
-      <TooltipProvider>
-        <Login onLogin={handleLogin} />
-        <Toaster />
-        <Sonner />
-      </TooltipProvider>
+      <BrowserRouter>
+        <TooltipProvider>
+          {authPage === "login" && <Login onLogin={handleLogin} onForgotPassword={handleForgotPassword} />}
+          {authPage === "forgot" && <ForgotPassword onBack={handleBackToLogin} />}
+          {authPage === "reset" && <ResetPassword token={resetToken} onBack={handleBackToLogin} onSuccess={handleResetSuccess} />}
+          <Routes>
+            <Route path="/verify-email" element={<VerifyEmail />} />
+          </Routes>
+          <Toaster />
+          <Sonner />
+        </TooltipProvider>
+      </BrowserRouter>
     );
   }
 

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
-import { Lock, User, Sparkles } from "lucide-react";
+import { Lock, User, Sparkles, AlertCircle } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import { apiJson } from "@/lib/api";
 import { storage, type Role, generateId, useApiBackend } from "@/lib/storage";
@@ -12,13 +12,16 @@ import { toast } from "sonner";
 
 interface Props {
   onLogin: () => void;
+  onForgotPassword?: () => void;
 }
 
-export default function Login({ onLogin }: Props) {
+export default function Login({ onLogin, onForgotPassword }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState("");
   const [role, setRole] = useState<Role>("Intern");
@@ -27,8 +30,14 @@ export default function Login({ onLogin }: Props) {
     e.preventDefault();
 
     if (mode === "register") {
-      if (!name.trim() || !username.trim() || !password.trim()) {
+      if (!name.trim() || !username.trim() || !password.trim() || !email.trim()) {
         setError("All fields are required.");
+        setErrorCode(null);
+        return;
+      }
+      if (!email.includes("@")) {
+        setError("Please enter a valid email address.");
+        setErrorCode(null);
         return;
       }
       const u = username.trim().toLowerCase();
@@ -36,19 +45,22 @@ export default function Login({ onLogin }: Props) {
       if (useApiBackend) {
         setIsLoading(true);
         setError("");
+        setErrorCode(null);
         try {
           await apiJson("/auth/register", {
             method: "POST",
-            body: JSON.stringify({ name: name.trim(), username: u, password, role }),
+            body: JSON.stringify({ username: u, email: email.trim(), password, memberId: `member_${Date.now()}` }),
           });
-          toast.success("Account request submitted. Waiting for admin approval.");
+          toast.success("Registration successful! Please check your email to verify your account.");
           setMode("login");
           setName("");
           setPassword("");
           setUsername("");
+          setEmail("");
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Request failed.";
-          setError(msg === "Username taken" ? "Username is already taken." : msg);
+          setError(msg === "Username taken" ? "Username is already taken." : msg === "Email already exists" ? "Email already registered." : msg);
+          setErrorCode(null);
         } finally {
           setIsLoading(false);
         }
@@ -81,15 +93,24 @@ export default function Login({ onLogin }: Props) {
 
     setIsLoading(true);
     setError("");
+    setErrorCode(null);
     try {
       const ok = await storage.login(username.trim().toLowerCase(), password);
       if (ok) {
         onLogin();
       } else {
         setError("Invalid credentials.");
+        setErrorCode(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed.");
+      const msg = err instanceof Error ? err.message : "Login failed.";
+      if (msg.includes("EMAIL_NOT_SET_UP")) {
+        setErrorCode("EMAIL_NOT_SET_UP");
+        setError("Your account does not have an email address set. Please contact your administrator to add an email to your account.");
+      } else {
+        setErrorCode(null);
+        setError(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -229,20 +250,38 @@ export default function Login({ onLogin }: Props) {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === "register" && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 }}
-                  className="space-y-1.5"
-                >
-                  <Label className="text-xs font-bold tracking-widest uppercase text-black/55">Full Name</Label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="John Doe"
-                    disabled={isLoading}
-                  />
-                </motion.div>
+                <>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                    className="space-y-1.5"
+                  >
+                    <Label className="text-xs font-bold tracking-widest uppercase text-black/55">Full Name</Label>
+                    <Input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="John Doe"
+                      disabled={isLoading}
+                    />
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.27 }}
+                    className="space-y-1.5"
+                  >
+                    <Label className="text-xs font-bold tracking-widest uppercase text-black/55">Email</Label>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="john@example.com"
+                      disabled={isLoading}
+                    />
+                  </motion.div>
+                </>
               )}
 
               <motion.div
@@ -308,14 +347,22 @@ export default function Login({ onLogin }: Props) {
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-sm rounded-xl p-3"
+                  className="text-sm rounded-xl p-4"
                   style={{
-                    color: "#111111",
-                    background: "rgba(0,0,0,0.08)",
-                    border: "1px solid rgba(0,0,0,0.16)",
+                    color: errorCode === 'EMAIL_NOT_SET_UP' ? "#991b1b" : "#111111",
+                    background: errorCode === 'EMAIL_NOT_SET_UP' ? "rgba(239, 68, 68, 0.1)" : "rgba(0,0,0,0.08)",
+                    border: errorCode === 'EMAIL_NOT_SET_UP' ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(0,0,0,0.16)",
                   }}
                 >
-                  {error}
+                  <div className="flex gap-2">
+                    {errorCode === 'EMAIL_NOT_SET_UP' && (
+                      <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: "#991b1b" }} />
+                    )}
+                    <div>
+                      <p className="font-semibold mb-1">{errorCode === 'EMAIL_NOT_SET_UP' ? '⚠️ Email Not Configured' : 'Error'}</p>
+                      <p className="text-xs opacity-90">{error}</p>
+                    </div>
+                  </div>
                 </motion.div>
               )}
 
@@ -339,10 +386,20 @@ export default function Login({ onLogin }: Props) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.55 }}
-              className="mt-6 pt-5 border-t text-center text-xs"
+              className="mt-6 pt-5 border-t text-center text-xs space-y-2"
               style={{ borderColor: "rgba(0,0,0,0.1)", color: "rgba(0,0,0,0.58)" }}
             >
-              Secure authentication enabled
+              <p>Secure authentication enabled</p>
+              {mode === "login" && (
+                <button
+                  type="button"
+                  onClick={() => onForgotPassword?.()}
+                  className="block w-full text-xs font-semibold hover:underline"
+                  style={{ color: "rgba(0,0,0,0.58)" }}
+                >
+                  Forgot your password?
+                </button>
+              )}
             </motion.div>
                 </div>
               </motion.div>

@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Save, LogOut, Moon, Sun } from "lucide-react";
+import { Eye, EyeOff, Save, LogOut, Mail, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { storage } from "@/lib/storage";
+import { apiJson } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,8 @@ export default function Settings({ onLogout }: SettingsProps) {
   // Profile state
   const [fullName, setFullName] = useState(me?.name ?? "");
   const [email, setEmail] = useState("");
+  const [emailUpdating, setEmailUpdating] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -33,17 +36,43 @@ export default function Settings({ onLogout }: SettingsProps) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Theme state
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
-
   // Dialog state
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("theme") as "light" | "dark" | null;
-    if (stored) setTheme(stored);
-  }, []);
+  const handleUpdateEmail = async () => {
+    if (!email.trim()) {
+      setEmailError("Email is required");
+      return;
+    }
+    if (!email.includes("@")) {
+      setEmailError("Please enter a valid email address");
+      return;
+    }
+
+    setEmailUpdating(true);
+    setEmailError("");
+    try {
+      const response = await apiJson("/auth/update-email", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+
+      if (response.success) {
+        toast.success("Email updated successfully! Please verify your new email.");
+        setEmail("");
+      } else {
+        setEmailError(response.error || "Failed to update email");
+        toast.error(response.error || "Failed to update email");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Request failed";
+      setEmailError(msg);
+      toast.error(msg);
+    } finally {
+      setEmailUpdating(false);
+    }
+  };
 
   const handleSaveProfile = () => {
     if (!fullName.trim()) {
@@ -86,20 +115,6 @@ export default function Settings({ onLogout }: SettingsProps) {
     setNewPassword("");
     setConfirmPassword("");
     setChangePasswordOpen(false);
-  };
-
-  const handleThemeToggle = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-
-    // Apply theme to document
-    if (newTheme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    toast.success(`Switched to ${newTheme} mode`);
   };
 
   const handleLogout = () => {
@@ -172,10 +187,49 @@ export default function Settings({ onLogout }: SettingsProps) {
               <p className="text-xs text-muted-foreground">Cannot be changed</p>
             </div>
 
-            <div className="pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Email Address
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError("");
+                }}
+                placeholder="your.email@example.com"
+                className="rounded-lg"
+                disabled={emailUpdating}
+              />
+              {emailError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-600"
+                >
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {emailError}
+                </motion.div>
+              )}
+              <p className="text-xs text-muted-foreground">We'll send a verification link to this email</p>
+            </div>
+
+            <div className="pt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
               <Button onClick={handleSaveProfile} className="rounded-lg gap-2">
                 <Save className="h-4 w-4" />
                 Save Profile
+              </Button>
+              <Button 
+                onClick={handleUpdateEmail} 
+                variant="outline" 
+                className="rounded-lg gap-2"
+                disabled={!email.trim() || emailUpdating}
+              >
+                <Mail className="h-4 w-4" />
+                {emailUpdating ? "Adding Email..." : "Add Email"}
               </Button>
             </div>
           </CardContent>
@@ -192,6 +246,19 @@ export default function Settings({ onLogout }: SettingsProps) {
 
           <CardContent className="space-y-4">
             <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+              <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Email Verification
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Email is required for password reset and account recovery
+              </p>
+              <div className="text-xs mb-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-blue-600">
+                💡 Add your email in the Profile section above to secure your account
+              </div>
+            </div>
+
+            <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
               <p className="text-sm font-medium mb-3">Password</p>
               <p className="text-xs text-muted-foreground mb-4">
                 Last changed: Never
@@ -205,80 +272,7 @@ export default function Settings({ onLogout }: SettingsProps) {
               </Button>
             </div>
 
-            <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
-              <p className="text-sm font-medium mb-2">Two-Factor Authentication</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                Enhance your account security with 2FA
-              </p>
-              <Button variant="outline" disabled className="rounded-lg opacity-50 cursor-not-allowed">
-                Enable 2FA (Coming Soon)
-              </Button>
-            </div>
 
-            <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
-              <p className="text-sm font-medium mb-2">Login History</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                View your recent login activity
-              </p>
-              <Button variant="outline" disabled className="rounded-lg opacity-50 cursor-not-allowed">
-                View History (Coming Soon)
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Preferences Section */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-        <Card className="glass-card border-white/20">
-          <CardHeader>
-            <CardTitle>Preferences</CardTitle>
-            <CardDescription>Customize your experience</CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-lg">
-              <div>
-                <p className="text-sm font-medium flex items-center gap-2">
-                  {theme === "dark" ? (
-                    <Moon className="h-4 w-4" />
-                  ) : (
-                    <Sun className="h-4 w-4" />
-                  )}
-                  Theme
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Currently using {theme} mode
-                </p>
-              </div>
-              <Button
-                size="sm"
-                onClick={handleThemeToggle}
-                className="rounded-lg"
-              >
-                {theme === "dark" ? "Switch to Light" : "Switch to Dark"}
-              </Button>
-            </div>
-
-            <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
-              <p className="text-sm font-medium mb-2">Notifications</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                Email notifications for important updates
-              </p>
-              <Button variant="outline" disabled className="rounded-lg opacity-50 cursor-not-allowed">
-                Configure (Coming Soon)
-              </Button>
-            </div>
-
-            <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
-              <p className="text-sm font-medium mb-2">Data & Privacy</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                Your data is protected and private
-              </p>
-              <Button variant="outline" disabled className="rounded-lg opacity-50 cursor-not-allowed">
-                Privacy Settings (Coming Soon)
-              </Button>
-            </div>
           </CardContent>
         </Card>
       </motion.div>
