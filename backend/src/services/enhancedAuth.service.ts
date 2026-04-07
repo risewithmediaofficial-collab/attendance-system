@@ -115,6 +115,15 @@ export class EnhancedAuthService {
         };
       }
 
+      // Check if user has email set up
+      if (!user.email || user.email.trim() === '') {
+        return {
+          success: false,
+          error: 'EMAIL_NOT_SET_UP',
+          message: 'Your account does not have an email address set. Please contact your administrator to set up your email.'
+        };
+      }
+
       // Check if email is verified
       if (!user.isEmailVerified) {
         return {
@@ -205,8 +214,17 @@ export class EnhancedAuthService {
       if (!user) {
         // Don't reveal if email exists or not
         return {
-          success: true,
-          message: 'If the email exists, a reset link has been sent'
+          success: false,
+          error: 'No user account found with this email'
+        };
+      }
+
+      // Check if user has email set up
+      if (!user.email || user.email.trim() === '') {
+        return {
+          success: false,
+          error: 'EMAIL_NOT_SET_UP',
+          message: 'Your account does not have an email address. Please add your email address first to reset your password.'
         };
       }
 
@@ -313,4 +331,85 @@ export class EnhancedAuthService {
       };
     }
   }
-}
+
+  // Check if user has email set up
+  async checkEmailStatus(userId: string): Promise<ApiResponse> {
+    try {
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found'
+        };
+      }
+
+      const hasEmail = user.email && user.email.trim() !== '';
+
+      return {
+        success: true,
+        data: {
+          userId,
+          hasEmail,
+          email: hasEmail ? user.email : null,
+          isEmailVerified: user.isEmailVerified || false,
+          message: hasEmail ? 'Email is set up' : 'Email is not set up for this account'
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to check email status'
+      };
+    }
+  }
+
+  // Update or add email address for user
+  async updateEmail(userId: string, newEmail: string): Promise<ApiResponse> {
+    try {
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found'
+        };
+      }
+
+      // Check if email is already in use by another user
+      const existingUser = await User.findOne({ 
+        email: newEmail.trim().toLowerCase(),
+        _id: { $ne: userId }
+      });
+
+      if (existingUser) {
+        return {
+          success: false,
+          error: 'Email already registered to another account'
+        };
+      }
+
+      // Generate new verification token
+      const { token, expiry } = this.emailService.generateToken();
+
+      // Update email and reset verification
+      user.email = newEmail.trim().toLowerCase();
+      user.isEmailVerified = false;
+      user.emailVerificationToken = token;
+      user.emailVerificationExpires = expiry;
+      await user.save();
+
+      // Send verification email
+      await this.emailService.sendEmailVerification(newEmail.trim().toLowerCase(), token);
+
+      return {
+        success: true,
+        message: 'Email updated successfully. Please check your email to verify.'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update email'
+      };
+    }
+  }

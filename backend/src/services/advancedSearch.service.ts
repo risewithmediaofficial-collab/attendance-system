@@ -139,7 +139,7 @@ export class AdvancedSearchService {
       const today = new Date().toISOString().split('T')[0];
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      const results = {
+      const results: any = {
         myTasksToday: [],
         myTasksOverdue: [],
         myRecentFiles: [],
@@ -210,7 +210,7 @@ export class AdvancedSearchService {
       }
 
       const searchRegex = new RegExp(query.trim(), 'i');
-      const suggestions = {
+      const suggestions: any = {
         tasks: [],
         members: []
       };

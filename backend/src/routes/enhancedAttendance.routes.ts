@@ -7,6 +7,12 @@ import {
   autoCheckout
 } from '../controllers/enhancedAttendance.controller.js';
 import { authenticateToken, authorize } from '../middleware/auth.middleware.js';
+import { validateBody, validateQuery } from '../middleware/validation.middleware.js';
+import {
+  CheckInSchema,
+  CheckOutSchema,
+  AttendanceHistorySchema
+} from '../validators/index.js';
 
 const router = Router();
 
@@ -14,10 +20,10 @@ const router = Router();
 router.use(authenticateToken);
 
 // User routes
-router.post('/check-in', checkIn);
-router.post('/check-out', checkOut);
+router.post('/check-in', validateBody(CheckInSchema), checkIn);
+router.post('/check-out', validateBody(CheckOutSchema), checkOut);
 router.get('/today', getTodayAttendance);
-router.get('/history', getAttendanceHistory);
+router.get('/history', validateQuery(AttendanceHistorySchema), getAttendanceHistory);
 
 // Admin only routes
 router.post('/auto-checkout', authorize(['Admin']), autoCheckout);

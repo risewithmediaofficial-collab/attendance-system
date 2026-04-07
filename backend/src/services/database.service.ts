@@ -45,14 +45,13 @@ export class DatabaseService {
       // Configure mongoose for optimal performance
       mongoose.set('strictQuery', true);
       
-      // Connection options for performance
+      // Connection options for performance (removed deprecated buffering options)
       const options = {
         // Connection pooling
         maxPoolSize: 10, // Maintain up to 10 socket connections
+        minPoolSize: 2, // Minimum pool size
         serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
         socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-        bufferMaxEntries: 0, // Disable mongoose buffering
-        bufferCommands: false, // Disable mongoose buffering
         
         // Performance optimizations
         retryWrites: true,

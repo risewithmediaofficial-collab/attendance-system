@@ -1,5 +1,5 @@
 import { ApiResponse, PaginationQuery, PaginationResult, LocationData, AttendanceLocation } from '../types/index.js';
-import { AttendanceRepository, ActivityLogRepository } from '../repositories/repositories.js';
+import { AttendanceRepository, ActivityLogRepository } from '../repositories/index.js';
 
 export class AttendanceService {
   private attendanceRepo: AttendanceRepository;

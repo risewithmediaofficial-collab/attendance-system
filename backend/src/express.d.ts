@@ -5,6 +5,11 @@ declare module "express-serve-static-core" {
     userId?: string;
     memberId?: string;
     role?: string;
+    user?: {
+      userId?: string;
+      memberId?: string;
+      role?: string;
+    };
   }
 }
 

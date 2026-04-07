@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { AttendanceService } from './attendance.service.js';
-import { TaskRepository, ActivityLogRepository } from '../repositories/repositories.js';
+import { TaskRepository, ActivityLogRepository } from '../repositories/index.js';
 
 export class CronJobService {
   private attendanceService: AttendanceService;
@@ -87,7 +87,7 @@ export class CronJobService {
           memberId: userId,
           action: 'overdue_task_reminder',
           timestamp: Date.now(),
-          details: `Sent reminder for ${tasks.length} overdue tasks`
+          details: `Sent reminder for ${(tasks as any[]).length} overdue tasks`
         });
       }
       

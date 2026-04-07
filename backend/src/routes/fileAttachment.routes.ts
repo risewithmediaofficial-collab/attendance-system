@@ -8,7 +8,7 @@ import {
   deleteFile
 } from '../controllers/fileAttachment.controller.js';
 import { authenticateToken } from '../middleware/auth.middleware.js';
-import { fileUploadLimiter } from '../middleware/rateLimit.middleware.js';
+import { uploadLimiter } from '../middleware/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -44,7 +44,7 @@ const upload = multer({
 });
 
 // File upload endpoint (safe - creates new records only)
-router.post('/upload', fileUploadLimiter, upload.single('file'), uploadFile);
+router.post('/upload', uploadLimiter, upload.single('file'), uploadFile);
 
 // Get user's files (safe - read-only)
 router.get('/my-files', getUserFiles);

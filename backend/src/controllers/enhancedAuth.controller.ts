@@ -66,3 +66,39 @@ export const changePassword = asyncHandler(async (req: Request, res: Response): 
   
   return await authService.changePassword(userId, oldPassword, newPassword);
 });
+
+// Check if user has email set up
+export const checkEmailStatus = asyncHandler(async (req: Request, res: Response): Promise<ApiResponse> => {
+  const userId = req.user?.userId;
+  
+  if (!userId) {
+    return {
+      success: false,
+      error: 'User not authenticated'
+    };
+  }
+  
+  return await authService.checkEmailStatus(userId);
+});
+
+// Update email address
+export const updateEmail = asyncHandler(async (req: Request, res: Response): Promise<ApiResponse> => {
+  const userId = req.user?.userId;
+  const { email } = req.body;
+  
+  if (!userId) {
+    return {
+      success: false,
+      error: 'User not authenticated'
+    };
+  }
+  
+  if (!email || !email.includes('@')) {
+    return {
+      success: false,
+      error: 'Invalid email address'
+    };
+  }
+  
+  return await authService.updateEmail(userId, email);
+});

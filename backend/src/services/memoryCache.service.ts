@@ -90,7 +90,7 @@ export class MemoryCacheService {
     const totalMemory = JSON.stringify(Array.from(this.cache.entries())).length;
     
     return {
-      size: this.cache.size(),
+      size: this.cache.size,
       keys,
       memoryUsage: `${(totalMemory / 1024).toFixed(2)} KB`
     };

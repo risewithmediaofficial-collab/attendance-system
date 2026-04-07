@@ -4,6 +4,7 @@ import cors from "cors";
 import mongoose from "mongoose";
 import { databaseService } from "./services/database.service.js";
 import { ServerWarmupService } from "./services/serverWarmup.service.js";
+import { SelfPingService } from "./services/selfPing.service.js";
 import { ensureDefaultUsers } from "./ensureDefaults.js";
 import { apiRouter } from "./routes.js";
 import { healthCheck, ping, databaseHealthCheck } from "./controllers/health.controller.js";
@@ -51,6 +52,12 @@ await ensureDefaultUsers();
 const warmupService = ServerWarmupService.getInstance();
 warmupService.startWarmup();
 
+// Start self-ping service (prevents Render cold starts)
+const selfPingService = SelfPingService.getInstance();
+if (process.env.NODE_ENV === 'production') {
+  selfPingService.startSelfPing();
+}
+
 const app = express();
 
 // CORS configuration for production
@@ -92,6 +99,16 @@ app.get("/ping", ping);
 // Database health check (separate from main health check)
 app.get("/health/database", databaseHealthCheck);
 
+// Self-ping service status (for monitoring)
+app.get("/health/self-ping", (_req, res) => {
+  const status = selfPingService.getStatus();
+  res.status(200).json({
+    service: "self-ping",
+    ...status,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Root endpoint
 app.get("/", (_req, res) => {
   res.json({
@@ -102,11 +119,13 @@ app.get("/", (_req, res) => {
       health: "/health",
       ping: "/ping",
       database: "/health/database",
+      selfPing: "/health/self-ping",
       api: "/api",
       auth: "/api/auth/login"
     },
     performance: {
       warmupEnabled: true,
+      selfPingEnabled: process.env.NODE_ENV === 'production',
       connectionPooling: true,
       caching: true
     }
