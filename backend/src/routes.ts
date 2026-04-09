@@ -453,6 +453,86 @@ export function apiRouter(): Router {
     res.json({ success: true, message: "Verification email sent" });
   });
 
+  r.post("/auth/forgot-password", async (req, res) => {
+    const email = normalizeEmail(String(req.body?.email ?? ""));
+    if (!email || !email.includes("@") || !email.includes(".")) {
+      res.status(400).json({ success: false, error: "Valid email address is required" });
+      return;
+    }
+
+    const user = await User.findOne({ email }).lean();
+    if (!user) {
+      // Do not reveal whether the email exists.
+      res.json({
+        success: true,
+        message: "If an account with that email exists, a password reset link has been sent.",
+      });
+      return;
+    }
+
+    const { token, hashedToken } = emailService.generateToken();
+    const resetExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          resetPasswordToken: hashedToken,
+          resetPasswordExpires: resetExpiry,
+        },
+      },
+    );
+
+    const sendResult = await emailService.sendPasswordReset(email, token);
+    if (!sendResult.success) {
+      res.status(500).json({
+        success: false,
+        error: sendResult.error ?? "Failed to send password reset email",
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: "Password reset link sent to your email.",
+    });
+  });
+
+  r.post("/auth/reset-password", async (req, res) => {
+    const token = String(req.body?.token ?? "").trim();
+    const newPassword = String(req.body?.newPassword ?? "");
+
+    if (!token || !newPassword) {
+      res.status(400).json({ success: false, error: "Reset token and new password are required" });
+      return;
+    }
+    if (newPassword.length < 8) {
+      res.status(400).json({ success: false, error: "Password must be at least 8 characters long" });
+      return;
+    }
+
+    const hashedToken = emailService.hashToken(token);
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    }).lean();
+
+    if (!user) {
+      res.status(400).json({ success: false, error: "Invalid or expired reset token" });
+      return;
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: { passwordHash },
+        $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 },
+      },
+    );
+
+    res.json({ success: true, message: "Password has been reset successfully" });
+  });
+
   r.put("/members", authMiddleware, requireAdmin, async (req, res) => {
     const body = req.body;
     if (!Array.isArray(body)) {
