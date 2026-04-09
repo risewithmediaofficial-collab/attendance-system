@@ -26,21 +26,72 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
   const [name, setName] = useState("");
   const [role, setRole] = useState<Role>("Intern");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const readField = (field: string, fallback: string) => {
+      const raw = formData.get(field);
+      return typeof raw === "string" ? raw : fallback;
+    };
+
+    // Read from form first to avoid browser autofill/state mismatch issues
+    const submittedName = readField("name", name).trim();
+    const submittedEmail = readField("email", email).trim();
+    const submittedUsername = readField("username", username).trim();
+    const submittedPassword = readField("password", password);
 
     if (mode === "register") {
-      if (!name.trim() || !username.trim() || !password.trim() || !email.trim()) {
-        setError("All fields are required.");
+      // Enhanced validation with specific error messages
+      if (!submittedName) {
+        setError("Name is required.");
         setErrorCode(null);
         return;
       }
-      if (!email.includes("@")) {
+      if (!submittedUsername) {
+        setError("Username is required.");
+        setErrorCode(null);
+        return;
+      }
+      if (!submittedEmail) {
+        setError("Email is required.");
+        setErrorCode(null);
+        return;
+      }
+      if (!submittedEmail.includes("@") || !submittedEmail.includes(".")) {
         setError("Please enter a valid email address.");
         setErrorCode(null);
         return;
       }
-      const u = username.trim().toLowerCase();
+      if (!submittedPassword.trim()) {
+        setError("Password is required.");
+        setErrorCode(null);
+        return;
+      }
+      if (submittedPassword.length < 8) {
+        setError("Password must be at least 8 characters long.");
+        setErrorCode(null);
+        return;
+      }
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])/.test(submittedPassword)) {
+        setError("Password must include uppercase, lowercase, number, and special character.");
+        setErrorCode(null);
+        return;
+      }
+      
+      const u = submittedUsername.toLowerCase();
+      setName(submittedName);
+      setEmail(submittedEmail);
+      setUsername(submittedUsername);
+      setPassword(submittedPassword);
+
+      // Debug logging
+      console.log("Registering user:", {
+        name: submittedName,
+        username: u,
+        email: submittedEmail,
+        passwordLength: submittedPassword.length,
+        role
+      });
 
       if (useApiBackend) {
         setIsLoading(true);
@@ -49,7 +100,14 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
         try {
           await apiJson("/auth/register", {
             method: "POST",
-            body: JSON.stringify({ username: u, email: email.trim(), password, memberId: `member_${Date.now()}` }),
+            body: JSON.stringify({ 
+              username: u, 
+              email: submittedEmail, 
+              password: submittedPassword, 
+              name: submittedName,
+              role,
+              memberId: `member_${Date.now()}` 
+            }),
           });
           toast.success("Registration successful! Please check your email to verify your account.");
           setMode("login");
@@ -58,8 +116,21 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
           setUsername("");
           setEmail("");
         } catch (err) {
+          console.error("Registration error:", err);
           const msg = err instanceof Error ? err.message : "Request failed.";
-          setError(msg === "Username taken" ? "Username is already taken." : msg === "Email already exists" ? "Email already registered." : msg);
+          if (msg.includes("Username taken")) {
+            setError("Username is already taken.");
+          } else if (msg.includes("Email already exists")) {
+            setError("Email already registered.");
+          } else if (msg.includes("Name is required")) {
+            setError("Name is required.");
+          } else if (msg.includes("Email is required")) {
+            setError("Email is required.");
+          } else if (msg.includes("Password is required")) {
+            setError("Password is required.");
+          } else {
+            setError(msg);
+          }
           setErrorCode(null);
         } finally {
           setIsLoading(false);
@@ -80,7 +151,7 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
       const pending = storage.getPendingUsers();
       storage.setPendingUsers([
         ...pending,
-        { id: generateId(), name: name.trim(), username: u, password, role, createdAt: Date.now() },
+        { id: generateId(), name: submittedName, username: u, password: submittedPassword, role, createdAt: Date.now() },
       ]);
       toast.success("Account request submitted. Waiting for admin approval.");
       setMode("login");
@@ -95,7 +166,9 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
     setError("");
     setErrorCode(null);
     try {
-      const ok = await storage.login(username.trim().toLowerCase(), password);
+      setUsername(submittedUsername);
+      setPassword(submittedPassword);
+      const ok = await storage.login(submittedUsername.toLowerCase(), submittedPassword);
       if (ok) {
         onLogin();
       } else {
@@ -259,9 +332,11 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
                   >
                     <Label className="text-xs font-bold tracking-widest uppercase text-black/55">Full Name</Label>
                     <Input
+                      name="name"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="John Doe"
+                      autoComplete="name"
                       disabled={isLoading}
                     />
                   </motion.div>
@@ -274,10 +349,14 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
                   >
                     <Label className="text-xs font-bold tracking-widest uppercase text-black/55">Email</Label>
                     <Input
+                      name="email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="john@example.com"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
                       disabled={isLoading}
                     />
                   </motion.div>
@@ -294,9 +373,13 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
                 <div className="relative">
                   <User className="absolute left-3.5 top-3.5 h-4 w-4 text-black/55" />
                   <Input
+                    name="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder={mode === "login" ? "admin" : "johndoe"}
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     className="pl-10"
                     disabled={isLoading}
                   />
@@ -313,10 +396,12 @@ export default function Login({ onLogin, onForgotPassword }: Props) {
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-black/55" />
                   <Input
+                    name="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="........"
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
                     className="pl-10"
                     disabled={isLoading}
                   />

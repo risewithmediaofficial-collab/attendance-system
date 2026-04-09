@@ -41,8 +41,16 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!r.ok) {
     let msg = r.statusText;
     try {
-      const j = (await r.json()) as { error?: string };
-      if (j.error) msg = j.error;
+      const j = (await r.json()) as {
+        error?: string;
+        data?: { errors?: Array<{ message?: string }> };
+      };
+      const validationMessage = j.data?.errors?.[0]?.message;
+      if (validationMessage) {
+        msg = validationMessage;
+      } else if (j.error) {
+        msg = j.error;
+      }
     } catch {
       /* ignore */
     }
