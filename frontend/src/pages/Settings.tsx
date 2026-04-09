@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Save, LogOut, Mail, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Save, LogOut, Mail, AlertCircle, CheckCircle2, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { storage } from "@/lib/storage";
@@ -16,7 +16,7 @@ interface SettingsProps {
   onLogout?: () => void;
 }
 
-export default function Settings({ onLogout }: SettingsProps) {
+const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
   const me = storage.getCurrentMember();
   const currentUser = storage
     .getUsers()
@@ -27,6 +27,9 @@ export default function Settings({ onLogout }: SettingsProps) {
   const [email, setEmail] = useState("");
   const [emailUpdating, setEmailUpdating] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [emailStatus, setEmailStatus] = useState<{ hasEmail: boolean; isVerified: boolean; email?: string }>({ hasEmail: false, isVerified: false });
+  const [loadingEmailStatus, setLoadingEmailStatus] = useState(true);
+  const [sendingVerification, setSendingVerification] = useState(false);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -40,7 +43,28 @@ export default function Settings({ onLogout }: SettingsProps) {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
-  const handleUpdateEmail = async () => {
+  // Load email status on component mount
+  useEffect(() => {
+    const loadEmailStatus = async () => {
+      try {
+        const response = await apiJson("/auth/check-email-status", {
+          method: "GET",
+        });
+
+        if (response.success) {
+          setEmailStatus(response.data);
+        }
+      } catch (err) {
+        console.error("Failed to load email status", err);
+      } finally {
+        setLoadingEmailStatus(false);
+      }
+    };
+
+    loadEmailStatus();
+  }, []);
+
+  const handleUpdateEmail = useCallback(async () => {
     if (!email.trim()) {
       setEmailError("Email is required");
       return;
@@ -53,14 +77,31 @@ export default function Settings({ onLogout }: SettingsProps) {
     setEmailUpdating(true);
     setEmailError("");
     try {
+      // Step 1: Update email
       const response = await apiJson("/auth/update-email", {
         method: "POST",
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
       if (response.success) {
-        toast.success("Email updated successfully! Please verify your new email.");
+        setEmailStatus({ hasEmail: true, isVerified: false, email: email.trim().toLowerCase() });
         setEmail("");
+        
+        // Step 2: Send verification email automatically
+        try {
+          const verifyResponse = await apiJson("/auth/send-verification", {
+            method: "POST",
+          });
+
+          if (verifyResponse.success) {
+            toast.success("Email added! Verification link sent to your email. Please check your inbox.");
+          } else {
+            toast.error(verifyResponse.error || "Email saved, but failed to send verification link.");
+          }
+        } catch (verifyErr) {
+          const verifyMsg = verifyErr instanceof Error ? verifyErr.message : "Email saved, but failed to send verification link.";
+          toast.error(verifyMsg);
+        }
       } else {
         setEmailError(response.error || "Failed to update email");
         toast.error(response.error || "Failed to update email");
@@ -72,9 +113,29 @@ export default function Settings({ onLogout }: SettingsProps) {
     } finally {
       setEmailUpdating(false);
     }
-  };
+  }, [email]);
 
-  const handleSaveProfile = () => {
+  const handleSendVerificationEmail = useCallback(async () => {
+    setSendingVerification(true);
+    try {
+      const response = await apiJson("/auth/send-verification", {
+        method: "POST",
+      });
+
+      if (response.success) {
+        toast.success("Verification email sent! Please check your inbox.");
+      } else {
+        toast.error(response.error || "Failed to send verification email");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Request failed";
+      toast.error(msg);
+    } finally {
+      setSendingVerification(false);
+    }
+  }, []);
+
+  const handleSaveProfile = useCallback(() => {
     if (!fullName.trim()) {
       toast.error("Name is required");
       return;
@@ -86,9 +147,9 @@ export default function Settings({ onLogout }: SettingsProps) {
     );
     storage.setMembers(updated);
     toast.success("Profile updated successfully");
-  };
+  }, [fullName, me?.id]);
 
-  const handleChangePassword = () => {
+  const handleChangePassword = useCallback(() => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error("All fields are required");
       return;
@@ -115,13 +176,13 @@ export default function Settings({ onLogout }: SettingsProps) {
     setNewPassword("");
     setConfirmPassword("");
     setChangePasswordOpen(false);
-  };
+  }, [currentPassword, newPassword, confirmPassword, currentUser?.id]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     storage.logout();
     if (onLogout) onLogout();
     toast.success("Logged out successfully");
-  };
+  }, [onLogout]);
 
   return (
     <div className="space-y-6">
@@ -229,7 +290,7 @@ export default function Settings({ onLogout }: SettingsProps) {
                 disabled={!email.trim() || emailUpdating}
               >
                 <Mail className="h-4 w-4" />
-                {emailUpdating ? "Adding Email..." : "Add Email"}
+                {emailUpdating ? "Sending..." : "Add Email & Send Link"}
               </Button>
             </div>
           </CardContent>
@@ -253,9 +314,50 @@ export default function Settings({ onLogout }: SettingsProps) {
               <p className="text-xs text-muted-foreground mb-4">
                 Email is required for password reset and account recovery
               </p>
-              <div className="text-xs mb-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-blue-600">
-                💡 Add your email in the Profile section above to secure your account
-              </div>
+
+              {loadingEmailStatus ? (
+                <div className="text-xs text-muted-foreground">Loading email status...</div>
+              ) : emailStatus.hasEmail ? (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "p-3 rounded-lg mb-3 text-xs flex items-center gap-2",
+                    emailStatus.isVerified
+                      ? "bg-green-500/10 border border-green-500/30 text-green-600"
+                      : "bg-yellow-500/10 border border-yellow-500/30 text-yellow-600"
+                  )}
+                >
+                  {emailStatus.isVerified ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                      <span>✅ {emailStatus.email} - Verified</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <span>⚠️ {emailStatus.email} - Verification Pending</span>
+                    </>
+                  )}
+                </motion.div>
+              ) : (
+                <div className="text-xs mb-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-blue-600">
+                  💡 Add your email in the Profile section above to secure your account
+                </div>
+              )}
+
+              {emailStatus.hasEmail && !emailStatus.isVerified && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSendVerificationEmail}
+                  disabled={sendingVerification}
+                  className="rounded-lg gap-2 text-xs"
+                >
+                  <Send className="h-3 w-3" />
+                  {sendingVerification ? "Sending..." : "Resend Verification Email"}
+                </Button>
+              )}
             </div>
 
             <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
@@ -440,4 +542,6 @@ export default function Settings({ onLogout }: SettingsProps) {
       </Dialog>
     </div>
   );
-}
+};
+
+export default memo(SettingsComponent);

@@ -31,6 +31,39 @@ export class EmailService {
     return 'http://localhost:5173';
   }
 
+  private formatEmailError(error: unknown): string {
+    const msg = error instanceof Error ? error.message : String(error ?? 'Unknown email error');
+    const lower = msg.toLowerCase();
+
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      return 'Email service is not configured. Please set SMTP_USER and SMTP_PASS on the backend.';
+    }
+
+    if (
+      lower.includes('invalid login') ||
+      lower.includes('badcredentials') ||
+      lower.includes('username and password not accepted') ||
+      lower.includes('535-5.7.8')
+    ) {
+      return 'Email service authentication failed. Update SMTP credentials (use a Gmail App Password, not account password).';
+    }
+
+    if (lower.includes('missing credentials')) {
+      return 'SMTP credentials are missing. Set SMTP_USER and SMTP_PASS in backend environment variables.';
+    }
+
+    if (
+      lower.includes('econnrefused') ||
+      lower.includes('enotfound') ||
+      lower.includes('etimedout') ||
+      lower.includes('connection')
+    ) {
+      return 'Unable to connect to the SMTP server. Check SMTP host/port and network access.';
+    }
+
+    return `Failed to send email: ${msg}`;
+  }
+
   // Generate secure token with expiry
   generateToken(): { token: string; hashedToken: string; expiry: number } {
     const token = crypto.randomBytes(32).toString('hex');
@@ -72,9 +105,10 @@ export class EmailService {
 
       return { success: true, message: 'Verification email sent' };
     } catch (error) {
+      console.error('[EmailService] sendEmailVerification failed:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to send verification email'
+        error: this.formatEmailError(error)
       };
     }
   }
@@ -107,9 +141,10 @@ export class EmailService {
 
       return { success: true, message: 'Password reset email sent' };
     } catch (error) {
+      console.error('[EmailService] sendPasswordReset failed:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to send password reset email'
+        error: this.formatEmailError(error)
       };
     }
   }
