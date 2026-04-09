@@ -3,28 +3,51 @@ import { hashPassword } from "./auth.js";
 import { Member, User } from "./models.js";
 
 export async function ensureDefaultUsers(): Promise<void> {
-  const [memberCount, userCount] = await Promise.all([Member.countDocuments(), User.countDocuments()]);
-  if (memberCount > 0 || userCount > 0) return;
+  const defaults = [
+    {
+      username: "admin",
+      password: "admin123",
+      memberName: "System Admin",
+      role: "Admin",
+      avatarSeed: "admin",
+    },
+    {
+      username: "employee",
+      password: "employee123",
+      memberName: "Employee (Jane)",
+      role: "Employee",
+      avatarSeed: "emp",
+    },
+    {
+      username: "intern",
+      password: "intern123",
+      memberName: "Intern (Mike)",
+      role: "Intern",
+      avatarSeed: "intern",
+    },
+  ] as const;
 
-  const adminMemberId = randomUUID();
-  const employeeMemberId = randomUUID();
-  const internMemberId = randomUUID();
+  for (const def of defaults) {
+    const existingUser = await User.findOne({ username: def.username }).lean();
+    if (existingUser) {
+      continue;
+    }
 
-  await Member.insertMany([
-    { _id: adminMemberId, name: "System Admin", role: "Admin", avatarSeed: "admin" },
-    { _id: employeeMemberId, name: "Employee (Jane)", role: "Employee", avatarSeed: "emp" },
-    { _id: internMemberId, name: "Intern (Mike)", role: "Intern", avatarSeed: "intern" },
-  ]);
+    const memberId = randomUUID();
+    const passwordHash = await hashPassword(def.password);
 
-  const [adminHash, employeeHash, internHash] = await Promise.all([
-    hashPassword("admin123"),
-    hashPassword("employee123"),
-    hashPassword("intern123"),
-  ]);
+    await Member.create({
+      _id: memberId,
+      name: def.memberName,
+      role: def.role,
+      avatarSeed: def.avatarSeed,
+    });
 
-  await User.insertMany([
-    { _id: randomUUID(), memberId: adminMemberId, username: "admin", passwordHash: adminHash },
-    { _id: randomUUID(), memberId: employeeMemberId, username: "employee", passwordHash: employeeHash },
-    { _id: randomUUID(), memberId: internMemberId, username: "intern", passwordHash: internHash },
-  ]);
+    await User.create({
+      _id: randomUUID(),
+      memberId,
+      username: def.username,
+      passwordHash,
+    });
+  }
 }
