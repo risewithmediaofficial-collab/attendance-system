@@ -219,6 +219,10 @@ export function apiRouter(): Router {
   const emailService = new EmailService();
   const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
+  r.get("/bootstrap", authMiddleware, async (req, res) => {
+    res.json(await bootstrapPayload(viewerFromReq(req)));
+  });
+
   r.post("/auth/login", async (req, res) => {
     const username = String(req.body?.username ?? "").trim().toLowerCase();
     const password = String(req.body?.password ?? "");
