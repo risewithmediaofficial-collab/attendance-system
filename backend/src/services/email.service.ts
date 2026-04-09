@@ -17,17 +17,37 @@ export class EmailService {
     });
   }
 
+  private getFrontendBaseUrl(): string {
+    const configured = process.env.FRONTEND_URL?.trim();
+    if (configured) {
+      return configured.replace(/\/$/, '');
+    }
+
+    const corsOrigin = process.env.CORS_ORIGIN?.trim();
+    if (corsOrigin && corsOrigin !== '*') {
+      return corsOrigin.replace(/\/$/, '');
+    }
+
+    return 'http://localhost:5173';
+  }
+
   // Generate secure token with expiry
-  generateToken(): { token: string; expiry: number } {
+  generateToken(): { token: string; hashedToken: string; expiry: number } {
     const token = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     const expiry = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
-    return { token, expiry };
+    return { token, hashedToken, expiry };
+  }
+
+  // Hash a token for comparison
+  hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
   }
 
   // Send email verification
   async sendEmailVerification(email: string, token: string): Promise<ApiResponse> {
     try {
-      const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+      const verificationUrl = `${this.getFrontendBaseUrl()}/verify-email?token=${token}`;
       
       await this.transporter.sendMail({
         from: process.env.SMTP_FROM || 'noreply@risewithmedia.com',
@@ -62,7 +82,7 @@ export class EmailService {
   // Send password reset email
   async sendPasswordReset(email: string, token: string): Promise<ApiResponse> {
     try {
-      const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+      const resetUrl = `${this.getFrontendBaseUrl()}/reset-password?token=${token}`;
       
       await this.transporter.sendMail({
         from: process.env.SMTP_FROM || 'noreply@risewithmedia.com',

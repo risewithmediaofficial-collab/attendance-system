@@ -15,6 +15,7 @@ import {
 } from "./models.js";
 import { authMiddleware, hashPassword, requireAdmin, signToken, verifyPassword } from "./auth.js";
 import type { AuthedRequest } from "./auth.js";
+import { EmailService } from "./services/email.service.js";
 
 type ViewerContext = {
   role?: string;
@@ -215,6 +216,8 @@ async function bootstrapPayload(viewer?: ViewerContext) {
 
 export function apiRouter(): Router {
   const r = createRouter();
+  const emailService = new EmailService();
+  const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
   r.post("/auth/login", async (req, res) => {
     const username = String(req.body?.username ?? "").trim().toLowerCase();
@@ -241,7 +244,6 @@ export function apiRouter(): Router {
         id: member._id,
         name: member.name,
         role: member.role,
-        avatarSeed: member.avatarSeed ?? undefined,
       },
     });
   });
@@ -249,28 +251,61 @@ export function apiRouter(): Router {
   r.post("/auth/register", async (req, res) => {
     const name = String(req.body?.name ?? "").trim();
     const username = String(req.body?.username ?? "").trim().toLowerCase();
+    const email = normalizeEmail(String(req.body?.email ?? ""));
     const password = String(req.body?.password ?? "");
     const role = String(req.body?.role ?? "Intern");
-    if (!name || !username || !password) {
-      res.status(400).json({ error: "All fields required" });
+    
+    // Enhanced validation with specific error messages
+    if (!name) {
+      res.status(400).json({ error: "Name is required" });
+      return;
+    }
+    if (!username) {
+      res.status(400).json({ error: "Username is required" });
+      return;
+    }
+    if (!email) {
+      res.status(400).json({ error: "Email is required" });
+      return;
+    }
+    if (!email.includes("@") || !email.includes(".")) {
+      res.status(400).json({ error: "Valid email address required" });
+      return;
+    }
+    if (!password) {
+      res.status(400).json({ error: "Password is required" });
+      return;
+    }
+    if (password.length < 6) {
+      res.status(400).json({ error: "Password must be at least 6 characters" });
       return;
     }
     if (role !== "Employee" && role !== "Intern") {
       res.status(400).json({ error: "Invalid role" });
       return;
     }
+    
     const takenUser = await User.findOne({ username });
     const takenPending = await PendingUser.findOne({ username });
     if (takenUser || takenPending) {
       res.status(409).json({ error: "Username taken" });
       return;
     }
+
+    const takenUserEmail = await User.findOne({ email });
+    const takenPendingEmail = await PendingUser.findOne({ email });
+    if (takenUserEmail || takenPendingEmail) {
+      res.status(409).json({ error: "Email already exists" });
+      return;
+    }
+    
     const id = randomUUID();
     const passwordHash = await hashPassword(password);
     await PendingUser.create({
       _id: id,
       name,
       username,
+      email,
       passwordHash,
       role,
       createdAt: Date.now(),
@@ -278,8 +313,140 @@ export function apiRouter(): Router {
     res.status(201).json({ ok: true });
   });
 
-  r.get("/bootstrap", authMiddleware, async (req, res) => {
-    res.json(await bootstrapPayload(viewerFromReq(req)));
+  r.get("/auth/verify-email", async (req, res) => {
+    const token = typeof req.query?.token === "string" ? req.query.token.trim() : "";
+    if (!token) {
+      res.status(400).json({ success: false, error: "Verification token is required" });
+      return;
+    }
+
+    const hashedToken = emailService.hashToken(token);
+    const user = await User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: { $gt: Date.now() },
+    }).lean();
+
+    if (!user) {
+      res.status(400).json({ success: false, error: "Invalid or expired verification token" });
+      return;
+    }
+
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: { isEmailVerified: true },
+        $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
+      },
+    );
+
+    res.json({ success: true, message: "Email verified successfully" });
+  });
+
+  r.get("/auth/check-email-status", authMiddleware, async (req, res) => {
+    if (!req.userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+
+    const user = await User.findById(req.userId).lean();
+    if (!user) {
+      res.status(404).json({ success: false, error: "User not found" });
+      return;
+    }
+
+    const hasEmail = typeof user.email === "string" && user.email.trim().length > 0;
+    res.json({
+      success: true,
+      data: {
+        hasEmail,
+        isVerified: Boolean(user.isEmailVerified),
+        email: hasEmail ? user.email : undefined,
+      },
+    });
+  });
+
+  r.post("/auth/update-email", authMiddleware, async (req, res) => {
+    if (!req.userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+
+    const email = normalizeEmail(String(req.body?.email ?? ""));
+    if (!email || !email.includes("@") || !email.includes(".")) {
+      res.status(400).json({ success: false, error: "Invalid email address" });
+      return;
+    }
+
+    const user = await User.findById(req.userId).lean();
+    if (!user) {
+      res.status(404).json({ success: false, error: "User not found" });
+      return;
+    }
+
+    const existingEmailUser = await User.findOne({
+      email,
+      _id: { $ne: req.userId },
+    }).lean();
+    if (existingEmailUser) {
+      res.status(409).json({ success: false, error: "Email already exists" });
+      return;
+    }
+
+    await User.updateOne(
+      { _id: req.userId },
+      {
+        $set: { email, isEmailVerified: false },
+        $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
+      },
+    );
+
+    res.json({
+      success: true,
+      message: "Email updated successfully. Please send a verification email.",
+    });
+  });
+
+  r.post("/auth/send-verification", authMiddleware, async (req, res) => {
+    if (!req.userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" });
+      return;
+    }
+
+    const user = await User.findById(req.userId).lean();
+    if (!user) {
+      res.status(404).json({ success: false, error: "User not found" });
+      return;
+    }
+    if (!user.email) {
+      res.status(400).json({ success: false, error: "No email address set for this account" });
+      return;
+    }
+    if (user.isEmailVerified) {
+      res.status(400).json({ success: false, error: "Email is already verified" });
+      return;
+    }
+
+    const { token, hashedToken, expiry } = emailService.generateToken();
+    await User.updateOne(
+      { _id: req.userId },
+      {
+        $set: {
+          emailVerificationToken: hashedToken,
+          emailVerificationExpires: expiry,
+        },
+      },
+    );
+
+    const sendResult = await emailService.sendEmailVerification(user.email, token);
+    if (!sendResult.success) {
+      res.status(500).json({
+        success: false,
+        error: sendResult.error ?? "Failed to send verification email",
+      });
+      return;
+    }
+
+    res.json({ success: true, message: "Verification email sent" });
   });
 
   r.put("/members", authMiddleware, requireAdmin, async (req, res) => {
@@ -358,6 +525,8 @@ export function apiRouter(): Router {
         _id: userId,
         memberId,
         username: pending.username,
+        email: pending.email ?? undefined,
+        isEmailVerified: false,
         passwordHash: pending.passwordHash,
       });
       await PendingUser.deleteOne({ _id: id });

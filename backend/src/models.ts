@@ -19,6 +19,10 @@ const UserSchema = new mongoose.Schema(
     _id: { type: String, required: true },
     memberId: { type: String, required: true },
     username: { type: String, required: true, unique: true },
+    email: { type: String, lowercase: true, trim: true },
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String },
+    emailVerificationExpires: { type: Number },
     passwordHash: { type: String, required: true },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Number },
@@ -29,6 +33,8 @@ const UserSchema = new mongoose.Schema(
 // Performance indexes for User
 UserSchema.index({ memberId: 1 });
 UserSchema.index({ username: 1 });
+UserSchema.index({ email: 1 }, { unique: true, sparse: true });
+UserSchema.index({ emailVerificationToken: 1 });
 UserSchema.index({ resetPasswordToken: 1 });
 
 const PendingUserSchema = new mongoose.Schema(
@@ -36,6 +42,7 @@ const PendingUserSchema = new mongoose.Schema(
     _id: { type: String, required: true },
     name: { type: String, required: true },
     username: { type: String, required: true, unique: true },
+    email: { type: String, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     role: { type: String, required: true },
     createdAt: { type: Number, required: true },
