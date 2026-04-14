@@ -1,17 +1,24 @@
 export * from "./storageTypes";
 import { localStorageImpl } from "./storageLocal";
 import { remoteStorageImpl } from "./storageRemote";
+import type { AttendanceRecord } from "./storageTypes";
 
 const raw = import.meta.env.VITE_API_BASE as string | undefined;
 export const useApiBackend = typeof raw === "string" && raw.trim().length > 0;
 
 export const storage = useApiBackend ? remoteStorageImpl : localStorageImpl;
 
+function isSunday(dateStr: string): boolean {
+  const date = new Date(`${dateStr}T00:00:00`);
+  return !Number.isNaN(date.getTime()) && date.getDay() === 0;
+}
+
 export function isHoliday(dateStr: string): boolean {
-  return storage.getHolidays().some((h) => h.date === dateStr);
+  return isSunday(dateStr) || storage.getHolidays().some((h) => h.date === dateStr);
 }
 
 export function getHolidayReason(dateStr: string): string | undefined {
+  if (isSunday(dateStr)) return "Sunday";
   return storage.getHolidays().find((h) => h.date === dateStr)?.reason;
 }
 
@@ -39,6 +46,37 @@ export async function approveAttendance(id: string): Promise<void> {
 
 export async function rejectAttendance(id: string, reason: string): Promise<void> {
   return storage.rejectAttendance(id, reason);
+}
+
+export async function createAdminAttendance(data: {
+  memberId: string;
+  date: string;
+  loginTime: string;
+  logoutTime: string;
+  lunchStartTime?: string;
+  lunchEndTime?: string;
+  status?: AttendanceRecord["status"];
+}): Promise<void> {
+  return storage.createAdminAttendance(data);
+}
+
+export async function updateAdminAttendance(
+  id: string,
+  data: {
+    memberId: string;
+    date: string;
+    loginTime: string;
+    logoutTime: string;
+    lunchStartTime?: string;
+    lunchEndTime?: string;
+    status?: AttendanceRecord["status"];
+  },
+): Promise<void> {
+  return storage.updateAdminAttendance(id, data);
+}
+
+export async function deleteAdminAttendance(id: string): Promise<void> {
+  return storage.deleteAdminAttendance(id);
 }
 
 // ========== NEW TASK FUNCTIONS (ClickUp Features) ==========

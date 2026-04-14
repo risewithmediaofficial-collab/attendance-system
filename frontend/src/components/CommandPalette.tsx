@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, FileText, Home, Zap, Archive, Command } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +16,7 @@ interface CommandItem {
   category: string;
 }
 
-export function CommandPalette() {
+export const CommandPalette = memo(function CommandPaletteComponent() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(0);
@@ -69,6 +69,17 @@ export function CommandPalette() {
       },
     },
     {
+      id: "manage-attendance",
+      label: "Manage Attendance",
+      description: "Admin panel for team attendance records",
+      icon: <FileText className="h-4 w-4" />,
+      category: "Navigation",
+      action: () => {
+        navigate("/manage-attendance");
+        setOpen(false);
+      },
+    },
+    {
       id: "create-task",
       label: "Create Task",
       description: "Create a new task",
@@ -92,7 +103,10 @@ export function CommandPalette() {
     },
   ];
 
-  const roleAwareCommands = role === "Admin" ? commands.filter((cmd) => cmd.id !== "mywork") : commands;
+  const roleAwareCommands =
+    role === "Admin"
+      ? commands.filter((cmd) => cmd.id !== "mywork")
+      : commands.filter((cmd) => cmd.id !== "manage-attendance");
 
   const filtered = roleAwareCommands.filter(
     (cmd) =>
@@ -238,4 +252,4 @@ export function CommandPalette() {
       )}
     </>
   );
-}
+});

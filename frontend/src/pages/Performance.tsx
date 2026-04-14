@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { storage, type Member, type Task, type AttendanceRecord } from "@/lib/storage";
+import { isHoliday, storage, type Member, type Task, type AttendanceRecord } from "@/lib/storage";
 import { format } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 
@@ -12,12 +12,8 @@ function toIsoDate(d: Date) {
   return format(d, "yyyy-MM-dd");
 }
 
-function isHoliday(dateStr: string, holidays: { date: string }[]) {
-  return holidays.some((h) => h.date === dateStr);
-}
-
-function calcAttendancePct(memberId: string, days: string[], attendance: AttendanceRecord[], holidays: { date: string }[]) {
-  const workDays = days.filter((d) => !isHoliday(d, holidays));
+function calcAttendancePct(memberId: string, days: string[], attendance: AttendanceRecord[]) {
+  const workDays = days.filter((d) => !isHoliday(d));
   if (workDays.length === 0) return 0;
   const present = workDays.filter((d) => attendance.some((a) => a.memberId === memberId && a.date === d)).length;
   return +(present / workDays.length * 100).toFixed(1);
@@ -51,8 +47,6 @@ export default function Performance() {
   const members = storage.getMembers();
   const attendance = storage.getAttendance();
   const tasks = storage.getTasks();
-  const holidays = storage.getHolidays();
-
   const attendanceDays = useMemo(() => {
     const out: string[] = [];
     const today = new Date();
@@ -71,12 +65,12 @@ export default function Performance() {
 
   const computed = useMemo(() => {
     return targetMembers.map((m) => {
-      const attPct = calcAttendancePct(m.id, attendanceDays, attendance, holidays);
+      const attPct = calcAttendancePct(m.id, attendanceDays, attendance);
       const taskPct = calcTaskCompletionPct(m.id, tasks);
       const score = calcScore(attPct, taskPct);
       const tasksAssigned = tasks.filter((t) => isTaskAssignedToMember(t, m.id)).length;
       const tasksCompleted = tasks.filter((t) => isTaskAssignedToMember(t, m.id) && t.status === "Completed").length;
-      const presentDays = attendanceDays.filter((d) => !isHoliday(d, holidays) && attendance.some((a) => a.memberId === m.id && a.date === d)).length;
+      const presentDays = attendanceDays.filter((d) => !isHoliday(d) && attendance.some((a) => a.memberId === m.id && a.date === d)).length;
       return {
         member: m,
         score,
@@ -85,14 +79,14 @@ export default function Performance() {
         tasksAssigned,
         tasksCompleted,
         presentDays,
-        workDays: attendanceDays.filter((d) => !isHoliday(d, holidays)).length,
+        workDays: attendanceDays.filter((d) => !isHoliday(d)).length,
       };
     });
-  }, [targetMembers, attendanceDays, attendance, holidays, tasks]);
+  }, [targetMembers, attendanceDays, attendance, tasks]);
 
   const chartData = useMemo(() => {
     // Attendance trend: aggregate present count / workdays.
-    const workDays = attendanceDays.filter((d) => !isHoliday(d, holidays));
+    const workDays = attendanceDays.filter((d) => !isHoliday(d));
     const series = attendanceDays.map((d) => {
       const denom = workDays.includes(d) ? 1 : 0;
       if (!denom) {
@@ -104,7 +98,7 @@ export default function Performance() {
       return { day: format(new Date(d), "EEE"), presentPct: +pct.toFixed(1), holiday: false };
     });
     return series;
-  }, [attendanceDays, holidays, role, members, me, attendance]);
+  }, [attendanceDays, role, members, me, attendance]);
 
   const donutData = useMemo(() => {
     const relevantMemberIds = new Set(targetMembers.map((m) => m.id));

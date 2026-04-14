@@ -267,6 +267,48 @@ export const remoteStorageImpl = {
     applyBootstrap(data, getStoredUserId());
   },
 
+  async createAdminAttendance(data: {
+    memberId: string;
+    date: string;
+    loginTime: string;
+    logoutTime: string;
+    lunchStartTime?: string;
+    lunchEndTime?: string;
+    status?: AttendanceRecord["status"];
+  }): Promise<void> {
+    const response = await apiJson<BootstrapData>("/attendance/admin", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    applyBootstrap(response, getStoredUserId());
+  },
+
+  async updateAdminAttendance(
+    id: string,
+    data: {
+      memberId: string;
+      date: string;
+      loginTime: string;
+      logoutTime: string;
+      lunchStartTime?: string;
+      lunchEndTime?: string;
+      status?: AttendanceRecord["status"];
+    },
+  ): Promise<void> {
+    const response = await apiJson<BootstrapData>(`/attendance/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    applyBootstrap(response, getStoredUserId());
+  },
+
+  async deleteAdminAttendance(id: string): Promise<void> {
+    const response = await apiJson<BootstrapData>(`/attendance/${id}`, {
+      method: "DELETE",
+    });
+    applyBootstrap(response, getStoredUserId());
+  },
+
   // ========== NEW TASK METHODS (ClickUp Features) ==========
 
   async updateTask(id: string, updates: Partial<any>): Promise<void> {

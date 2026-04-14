@@ -314,12 +314,20 @@ export const localStorageImpl = {
       approvedBy: localStorageImpl.isAdmin() ? currentMember?.id : undefined,
     };
 
-    // Check if record already exists for this date
-    const existing = attendance.findIndex(
-      (a) => a.date === data.date && a.memberId === currentMember?.id && a.approvalStatus === "Approved"
+    const existingIndex = attendance.findIndex(
+      (a) => a.date === data.date && a.memberId === currentMember?.id
     );
-    if (existing >= 0) {
-      throw new Error("Attendance already approved for this date");
+    if (existingIndex >= 0) {
+      if (attendance[existingIndex].approvalStatus === "Approved") {
+        throw new Error("Attendance already approved for this date");
+      }
+      attendance[existingIndex] = {
+        ...attendance[existingIndex],
+        ...newRecord,
+        id: attendance[existingIndex].id,
+      };
+      set("attendance", attendance);
+      return;
     }
 
     set("attendance", [...attendance, newRecord]);
@@ -345,6 +353,98 @@ export const localStorageImpl = {
       attendance[index].rejectionReason = reason;
       set("attendance", attendance);
     }
+  },
+
+  async createAdminAttendance(data: {
+    memberId: string;
+    date: string;
+    loginTime: string;
+    logoutTime: string;
+    lunchStartTime?: string;
+    lunchEndTime?: string;
+    status?: AttendanceRecord["status"];
+  }): Promise<void> {
+    const { calculateHours, getStatus } = await import("./storageTypes");
+    const attendance = get<AttendanceRecord[]>("attendance", []);
+    const currentMember = localStorageImpl.getCurrentMember();
+    const duplicate = attendance.some((a) => a.memberId === data.memberId && a.date === data.date);
+    if (duplicate) {
+      throw new Error("Attendance already exists for this employee on this date");
+    }
+
+    const hours = calculateHours(data.loginTime, data.logoutTime, data.lunchStartTime, data.lunchEndTime);
+    const record: AttendanceRecord = {
+      id: generateId(),
+      memberId: data.memberId,
+      date: data.date,
+      loginTime: data.loginTime,
+      logoutTime: data.logoutTime,
+      lunchStartTime: data.lunchStartTime,
+      lunchEndTime: data.lunchEndTime,
+      hours,
+      status: data.status ?? getStatus(hours),
+      approvalStatus: "Approved",
+      submittedAt: Date.now(),
+      submittedBy: currentMember?.id,
+      approvedAt: Date.now(),
+      approvedBy: currentMember?.id,
+    };
+
+    set("attendance", [...attendance, record]);
+  },
+
+  async updateAdminAttendance(
+    id: string,
+    data: {
+      memberId: string;
+      date: string;
+      loginTime: string;
+      logoutTime: string;
+      lunchStartTime?: string;
+      lunchEndTime?: string;
+      status?: AttendanceRecord["status"];
+    },
+  ): Promise<void> {
+    const { calculateHours, getStatus } = await import("./storageTypes");
+    const attendance = get<AttendanceRecord[]>("attendance", []);
+    const index = attendance.findIndex((a) => a.id === id);
+    if (index < 0) {
+      throw new Error("Attendance record not found");
+    }
+
+    const duplicate = attendance.some((a) => a.id !== id && a.memberId === data.memberId && a.date === data.date);
+    if (duplicate) {
+      throw new Error("Attendance already exists for this employee on this date");
+    }
+
+    const currentMember = localStorageImpl.getCurrentMember();
+    const hours = calculateHours(data.loginTime, data.logoutTime, data.lunchStartTime, data.lunchEndTime);
+    attendance[index] = {
+      ...attendance[index],
+      memberId: data.memberId,
+      date: data.date,
+      loginTime: data.loginTime,
+      logoutTime: data.logoutTime,
+      lunchStartTime: data.lunchStartTime,
+      lunchEndTime: data.lunchEndTime,
+      hours,
+      status: data.status ?? getStatus(hours),
+      approvalStatus: "Approved",
+      rejectionReason: undefined,
+      approvedAt: Date.now(),
+      approvedBy: currentMember?.id,
+    };
+
+    set("attendance", attendance);
+  },
+
+  async deleteAdminAttendance(id: string): Promise<void> {
+    const attendance = get<AttendanceRecord[]>("attendance", []);
+    const next = attendance.filter((a) => a.id !== id);
+    if (next.length === attendance.length) {
+      throw new Error("Attendance record not found");
+    }
+    set("attendance", next);
   },
 
   async approvePending(id: string): Promise<void> {

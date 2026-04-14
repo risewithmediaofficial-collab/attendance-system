@@ -15,6 +15,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import VerifyEmail from "@/pages/VerifyEmail";
 import Dashboard from "@/pages/Dashboard";
 import Attendance from "@/pages/Attendance";
+import ManageAttendance from "@/pages/ManageAttendance";
 import WorkReports from "@/pages/WorkReports";
 import Members from "@/pages/Members";
 import Holidays from "@/pages/Holidays";
@@ -73,6 +74,7 @@ function AnimatedRoutes() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/attendance" element={<Attendance />} />
+          <Route path="/manage-attendance" element={role === "Admin" ? <ManageAttendance /> : <Navigate to="/attendance" replace />} />
           <Route path="/board" element={<Board />} />
           <Route path="/list" element={<ListView />} />
           <Route path="/calendar" element={<CalendarView />} />

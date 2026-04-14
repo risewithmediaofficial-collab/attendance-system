@@ -81,6 +81,7 @@ export default function Holidays() {
           <p className="page-subtitle mt-2">
             {holidays.length} holiday{holidays.length !== 1 ? "s" : ""} scheduled - plan your time
           </p>
+          <p className="text-xs text-muted-foreground mt-2">Sundays are treated as default holidays automatically.</p>
         </div>
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button 

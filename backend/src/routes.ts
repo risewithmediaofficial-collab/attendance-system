@@ -841,20 +841,120 @@ export function apiRouter(): Router {
     return "Short";
   }
 
+  const attendanceStatuses = new Set<"Full Day" | "Half Day" | "Short">([
+    "Full Day",
+    "Half Day",
+    "Short",
+  ]);
+
+  function isValidTime(value: string): boolean {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  }
+
+  function isValidIsoDate(value: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  }
+
+  function toMinutes(value: string): number {
+    const [hours, minutes] = value.split(":").map(Number);
+    return hours * 60 + minutes;
+  }
+
+  function isSundayHoliday(date: string): boolean {
+    const parsed = new Date(`${date}T00:00:00`);
+    return !Number.isNaN(parsed.getTime()) && parsed.getDay() === 0;
+  }
+
+  async function isHolidayDate(date: string): Promise<boolean> {
+    if (isSundayHoliday(date)) return true;
+    const existingHoliday = await Holiday.findOne({ date }).lean();
+    return !!existingHoliday;
+  }
+
+  function parseAttendanceInput(body: Record<string, unknown>) {
+    const memberId = String(body.memberId ?? "").trim();
+    const date = String(body.date ?? "").trim();
+    const loginTime = String(body.loginTime ?? "").trim();
+    const logoutTime = String(body.logoutTime ?? "").trim();
+    const lunchStartTime = body.lunchStartTime ? String(body.lunchStartTime).trim() : undefined;
+    const lunchEndTime = body.lunchEndTime ? String(body.lunchEndTime).trim() : undefined;
+    const requestedStatus = body.status != null ? String(body.status).trim() : "";
+
+    if (!memberId || !date || !loginTime || !logoutTime) {
+      return { error: "Member, date, login time, and logout time are required" } as const;
+    }
+    if (!isValidIsoDate(date)) {
+      return { error: "Date must be in YYYY-MM-DD format" } as const;
+    }
+    if (!isValidTime(loginTime) || !isValidTime(logoutTime)) {
+      return { error: "Login and logout time must be in HH:MM format" } as const;
+    }
+    if ((lunchStartTime && !lunchEndTime) || (!lunchStartTime && lunchEndTime)) {
+      return { error: "Both lunch start and lunch end time are required together" } as const;
+    }
+    if (lunchStartTime && lunchEndTime && (!isValidTime(lunchStartTime) || !isValidTime(lunchEndTime))) {
+      return { error: "Lunch time must be in HH:MM format" } as const;
+    }
+
+    const loginMinutes = toMinutes(loginTime);
+    const logoutMinutes = toMinutes(logoutTime);
+    if (logoutMinutes <= loginMinutes) {
+      return { error: "Logout time must be after login time" } as const;
+    }
+
+    if (lunchStartTime && lunchEndTime) {
+      const lunchStartMinutes = toMinutes(lunchStartTime);
+      const lunchEndMinutes = toMinutes(lunchEndTime);
+      if (lunchEndMinutes <= lunchStartMinutes) {
+        return { error: "Lunch end time must be after lunch start time" } as const;
+      }
+      if (lunchStartMinutes < loginMinutes || lunchEndMinutes > logoutMinutes) {
+        return { error: "Lunch time must be within login and logout time" } as const;
+      }
+    }
+
+    const hours = calculateWorkHours(loginTime, logoutTime, lunchStartTime, lunchEndTime);
+    const computedStatus = getAttendanceStatus(hours);
+    const status =
+      requestedStatus && attendanceStatuses.has(requestedStatus as "Full Day" | "Half Day" | "Short")
+        ? (requestedStatus as "Full Day" | "Half Day" | "Short")
+        : computedStatus;
+
+    return {
+      value: {
+        memberId,
+        date,
+        loginTime,
+        logoutTime,
+        lunchStartTime,
+        lunchEndTime,
+        hours,
+        status,
+      },
+    } as const;
+  }
+
   // Submit attendance request
   r.post("/attendance/submit", authMiddleware, async (req, res) => {
-    const loginTime = String(req.body?.loginTime ?? "").trim();
-    const logoutTime = String(req.body?.logoutTime ?? "").trim();
-    const date = String(req.body?.date ?? "").trim();
-    const lunchStartTime = req.body?.lunchStartTime ? String(req.body.lunchStartTime).trim() : undefined;
-    const lunchEndTime = req.body?.lunchEndTime ? String(req.body.lunchEndTime).trim() : undefined;
-
-    if (!loginTime || !logoutTime || !date) {
-      res.status(400).json({ error: "Login time, logout time, and date required" });
-      return;
-    }
     if (!req.memberId) {
       res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const parsed = parseAttendanceInput({
+      ...req.body,
+      memberId: req.memberId,
+      status: undefined,
+    });
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+
+    const { memberId, date, loginTime, logoutTime, lunchStartTime, lunchEndTime, hours, status } = parsed.value;
+
+    if (await isHolidayDate(date)) {
+      res.status(403).json({ error: "Attendance cannot be submitted on holidays" });
       return;
     }
 
@@ -867,21 +967,11 @@ export function apiRouter(): Router {
       }
     }
 
-    const hours = calculateWorkHours(loginTime, logoutTime, lunchStartTime, lunchEndTime);
-    const status = getAttendanceStatus(hours);
-    const id = randomUUID();
+    const existing = await AttendanceRecord.findOne({ date, memberId }).lean();
 
-    // Check for existing record for this date and member
-    const existing = await AttendanceRecord.findOne({ date, memberId: req.memberId }).lean();
-    if (existing && existing.approvalStatus === "Approved") {
-      res.status(403).json({ error: "Attendance already approved for this date" });
-      return;
-    }
-
-    const data = {
-      _id: id,
+    const baseData = {
       date,
-      memberId: req.memberId,
+      memberId,
       loginTime,
       logoutTime,
       lunchStartTime,
@@ -894,18 +984,168 @@ export function apiRouter(): Router {
     };
 
     if (req.role === "Admin") {
-      // Auto-approve for admin submissions
-      await AttendanceRecord.create({
-        ...data,
-        approvalStatus: "Approved",
+      const adminData = {
+        ...baseData,
+        approvalStatus: "Approved" as const,
         approvedAt: Date.now(),
         approvedBy: req.memberId,
-      });
+        rejectionReason: undefined,
+      };
+      if (existing) {
+        await AttendanceRecord.updateOne({ _id: existing._id }, adminData);
+      } else {
+        await AttendanceRecord.create({
+          _id: randomUUID(),
+          ...adminData,
+        });
+      }
     } else {
-      await AttendanceRecord.create(data);
+      if (existing?.approvalStatus === "Approved") {
+        res.status(403).json({ error: "Attendance already approved for this date" });
+        return;
+      }
+
+      const userData = {
+        ...baseData,
+        approvedAt: undefined,
+        approvedBy: undefined,
+        rejectionReason: undefined,
+      };
+
+      if (existing) {
+        await AttendanceRecord.updateOne(
+          { _id: existing._id },
+          {
+            ...userData,
+            approvalStatus: "Pending",
+          },
+        );
+      } else {
+        await AttendanceRecord.create({
+          _id: randomUUID(),
+          ...userData,
+        });
+      }
     }
 
     res.status(201).json(await bootstrapPayload(viewerFromReq(req)));
+  });
+
+  r.post("/attendance/admin", authMiddleware, requireAdmin, async (req, res) => {
+    if (!req.memberId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const parsed = parseAttendanceInput(req.body as Record<string, unknown>);
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+
+    const { memberId, date, loginTime, logoutTime, lunchStartTime, lunchEndTime, hours, status } = parsed.value;
+    if (await isHolidayDate(date)) {
+      res.status(403).json({ error: "Attendance cannot be created on holidays" });
+      return;
+    }
+    const memberExists = await Member.findById(memberId).lean();
+    if (!memberExists) {
+      res.status(404).json({ error: "Employee not found" });
+      return;
+    }
+    const duplicate = await AttendanceRecord.findOne({ memberId, date }).lean();
+    if (duplicate) {
+      res.status(409).json({ error: "Attendance already exists for this employee on this date" });
+      return;
+    }
+
+    await AttendanceRecord.create({
+      _id: randomUUID(),
+      memberId,
+      date,
+      loginTime,
+      logoutTime,
+      lunchStartTime,
+      lunchEndTime,
+      hours,
+      status,
+      approvalStatus: "Approved",
+      submittedAt: Date.now(),
+      submittedBy: req.memberId,
+      approvedAt: Date.now(),
+      approvedBy: req.memberId,
+    });
+
+    res.status(201).json(await bootstrapPayload(viewerFromReq(req)));
+  });
+
+  r.patch("/attendance/:id", authMiddleware, requireAdmin, async (req, res) => {
+    if (!req.memberId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { id } = req.params;
+    const record = await AttendanceRecord.findById(id);
+    if (!record) {
+      res.status(404).json({ error: "Attendance record not found" });
+      return;
+    }
+
+    const parsed = parseAttendanceInput(req.body as Record<string, unknown>);
+    if ("error" in parsed) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+
+    const { memberId, date, loginTime, logoutTime, lunchStartTime, lunchEndTime, hours, status } = parsed.value;
+    if (await isHolidayDate(date)) {
+      res.status(403).json({ error: "Attendance cannot be updated to a holiday" });
+      return;
+    }
+    const memberExists = await Member.findById(memberId).lean();
+    if (!memberExists) {
+      res.status(404).json({ error: "Employee not found" });
+      return;
+    }
+    const duplicate = await AttendanceRecord.findOne({
+      memberId,
+      date,
+      _id: { $ne: id },
+    }).lean();
+    if (duplicate) {
+      res.status(409).json({ error: "Attendance already exists for this employee on this date" });
+      return;
+    }
+
+    record.memberId = memberId;
+    record.date = date;
+    record.loginTime = loginTime;
+    record.logoutTime = logoutTime;
+    record.lunchStartTime = lunchStartTime;
+    record.lunchEndTime = lunchEndTime;
+    record.hours = hours;
+    record.status = status;
+    record.approvalStatus = "Approved";
+    record.rejectionReason = undefined;
+    record.submittedAt = record.submittedAt ?? Date.now();
+    record.submittedBy = record.submittedBy ?? req.memberId;
+    record.approvedAt = Date.now();
+    record.approvedBy = req.memberId;
+    await record.save();
+
+    res.json(await bootstrapPayload(viewerFromReq(req)));
+  });
+
+  r.delete("/attendance/:id", authMiddleware, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const deleted = await AttendanceRecord.findByIdAndDelete(id);
+    if (!deleted) {
+      res.status(404).json({ error: "Attendance record not found" });
+      return;
+    }
+
+    res.json(await bootstrapPayload(viewerFromReq(req)));
   });
 
   // Approve attendance request
@@ -917,9 +1157,21 @@ export function apiRouter(): Router {
       return;
     }
 
+    const duplicateApproved = await AttendanceRecord.findOne({
+      _id: { $ne: id },
+      memberId: record.memberId,
+      date: record.date,
+      approvalStatus: "Approved",
+    }).lean();
+    if (duplicateApproved) {
+      res.status(409).json({ error: "Another approved attendance record already exists for this employee on this date" });
+      return;
+    }
+
     record.approvalStatus = "Approved";
     record.approvedAt = Date.now();
     record.approvedBy = req.memberId;
+    record.rejectionReason = undefined;
     await record.save();
 
     res.json(await bootstrapPayload(viewerFromReq(req)));

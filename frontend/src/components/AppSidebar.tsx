@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, CalendarCheck, FileText, Palmtree, LogOut, ChevronLeft, ChevronRight, KanbanSquare, TrendingUp, CheckCircle2, Settings, List, Calendar, Activity, Clock, ClipboardCheck } from "lucide-react";
+import { LayoutDashboard, Users, CalendarCheck, FileText, Palmtree, LogOut, ChevronLeft, ChevronRight, KanbanSquare, TrendingUp, CheckCircle2, Settings, List, Calendar, Activity, Clock, ClipboardCheck, ClipboardList } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -62,7 +62,7 @@ const NavItemComponent = memo(({ item, active, collapsed }: NavItemProps) => {
 
 NavItemComponent.displayName = "NavItem";
 
-export function AppSidebar({ onLogout, collapsed, onToggle }: Props) {
+export const AppSidebar = memo(function AppSidebarComponent({ onLogout, collapsed, onToggle }: Props) {
   const location = useLocation();
   const role = storage.getCurrentRole();
 
@@ -84,6 +84,7 @@ export function AppSidebar({ onLogout, collapsed, onToggle }: Props) {
     
     if (role === "Admin") {
       baseItems.push(
+        { title: "Manage Attendance", url: "/manage-attendance", icon: ClipboardList },
         { title: "Review Tasks", url: "/admin-review", icon: ClipboardCheck },
         { title: "Members", url: "/members", icon: Users },
         { title: "Holidays", url: "/holidays", icon: Palmtree }
@@ -188,4 +189,4 @@ export function AppSidebar({ onLogout, collapsed, onToggle }: Props) {
       </div>
     </motion.aside>
   );
-}
+});
