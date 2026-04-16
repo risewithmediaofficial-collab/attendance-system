@@ -237,14 +237,88 @@ export default function Attendance() {
   };
 
   const save = async () => {
-    if (!formMemberId || !selectedDate) return;
-    if (holidayOnSelected) return;
-    if (!storage.canEditAttendanceDate(selectedDate) && role !== "Admin") return;
-    if (!loginTime || !logoutTime) return;
+    if (!formMemberId || !selectedDate) {
+      toast.error("Member and date are required");
+      return;
+    }
+    if (holidayOnSelected) {
+      toast.error("Cannot mark attendance on holidays");
+      return;
+    }
+    if (!storage.canEditAttendanceDate(selectedDate) && role !== "Admin") {
+      toast.error("Cannot edit attendance for this date");
+      return;
+    }
+    
+    // Enhanced time validation
+    if (!loginTime || !loginTime.trim()) {
+      toast.error("Login time is required");
+      return;
+    }
+    if (!logoutTime || !logoutTime.trim()) {
+      toast.error("Logout time is required");
+      return;
+    }
+    
+    // Validate time format (HH:MM)
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(loginTime)) {
+      toast.error("Invalid login time format. Use HH:MM format (e.g., 09:00)");
+      return;
+    }
+    if (!timeRegex.test(logoutTime)) {
+      toast.error("Invalid logout time format. Use HH:MM format (e.g., 18:00)");
+      return;
+    }
+    
+    // Validate lunch times if provided
+    if (lunchStartTime && !timeRegex.test(lunchStartTime)) {
+      toast.error("Invalid lunch start time format. Use HH:MM format");
+      return;
+    }
+    if (lunchEndTime && !timeRegex.test(lunchEndTime)) {
+      toast.error("Invalid lunch end time format. Use HH:MM format");
+      return;
+    }
+    
+    // Validate time logic
+    const loginMinutes = timeToMinutes(loginTime);
+    const logoutMinutes = timeToMinutes(logoutTime);
+    
+    if (loginMinutes >= logoutMinutes) {
+      toast.error("Logout time must be after login time");
+      return;
+    }
+    
+    if (lunchStartTime && lunchEndTime) {
+      const lunchStartMinutes = timeToMinutes(lunchStartTime);
+      const lunchEndMinutes = timeToMinutes(lunchEndTime);
+      
+      if (lunchStartMinutes >= lunchEndMinutes) {
+        toast.error("Lunch end time must be after lunch start time");
+        return;
+      }
+      
+      if (lunchStartMinutes < loginMinutes || lunchEndMinutes > logoutMinutes) {
+        toast.error("Lunch time must be within login and logout times");
+        return;
+      }
+    }
+    
     if (isDuplicate(selectedDate, formMemberId, editId ?? undefined)) {
       toast.error("Attendance already exists for this member on this date.");
       return;
     }
+
+    // Debug logging
+    console.log("Submitting attendance:", {
+      date: selectedDate,
+      memberId: formMemberId,
+      loginTime,
+      logoutTime,
+      lunchStartTime: lunchStartTime || undefined,
+      lunchEndTime: lunchEndTime || undefined,
+    });
 
     try {
       await submitAttendance({
@@ -258,8 +332,26 @@ export default function Attendance() {
       toast.success(role === "Admin" ? "Attendance recorded" : "Attendance submitted for approval");
       setOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to submit attendance");
+      console.error("Attendance submission error:", error);
+      const errorMsg = error instanceof Error ? error.message : "Failed to submit attendance";
+      
+      // Provide more specific error messages
+      if (errorMsg.includes("required")) {
+        toast.error("Please fill all required fields");
+      } else if (errorMsg.includes("already exists")) {
+        toast.error("Attendance already exists for this date");
+      } else if (errorMsg.includes("Invalid time")) {
+        toast.error("Invalid time format provided");
+      } else {
+        toast.error(errorMsg);
+      }
     }
+  };
+
+  // Helper function to convert time string to minutes
+  const timeToMinutes = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
   };
 
   const handleApprove = async (id: string) => {

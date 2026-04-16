@@ -100,11 +100,13 @@
   height: 420px;
   background: radial-gradient(circle, rgba(108,116,220,0.12) 0%, transparent 72%);
   border-radius: 50%;
-  filter: blur(60px);
+  filter: blur(40px);
+  will-change: opacity;
   top: -80px;
   right: -120px;
   z-index: 0;
   pointer-events: none;
+  transform: translateZ(0);
 }
 
 .layout-grid::after {
@@ -114,11 +116,13 @@
   height: 380px;
   background: radial-gradient(circle, rgba(108,116,220,0.08) 0%, transparent 70%);
   border-radius: 50%;
-  filter: blur(50px);
+  filter: blur(35px);
+  will-change: opacity;
   bottom: 20px;
   left: -100px;
   z-index: 0;
   pointer-events: none;
+  transform: translateZ(0);
 }
 
 .layout-grid.mobile {
@@ -311,7 +315,8 @@
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   box-shadow: 0 12px 40px rgba(27, 31, 59, 0.06), 0 3px 12px rgba(107, 140, 255, 0.08);
-  transition: all 0.35s var(--ease-smooth);
+  transition: transform 0.35s var(--ease-smooth), background 0.35s var(--ease-smooth), border-color 0.35s var(--ease-smooth), box-shadow 0.35s var(--ease-smooth);
+  will-change: transform;
   position: relative;
   overflow: hidden;
 }
@@ -343,7 +348,8 @@
   -webkit-backdrop-filter: blur(28px);
   border-radius: 20px;
   box-shadow: 0 12px 40px rgba(27, 31, 59, 0.06), 0 3px 12px rgba(107, 140, 255, 0.08);
-  transition: all 0.35s var(--ease-smooth);
+  transition: transform 0.35s var(--ease-smooth), background 0.35s var(--ease-smooth), border-color 0.35s var(--ease-smooth), box-shadow 0.35s var(--ease-smooth);
+  will-change: transform;
 }
 
 .card-overlay::after {
@@ -390,7 +396,8 @@
   -webkit-backdrop-filter: blur(28px);
   border-radius: 20px;
   box-shadow: 0 12px 40px rgba(27, 31, 59, 0.06), 0 3px 12px rgba(107, 140, 255, 0.08);
-  transition: all 0.35s var(--ease-smooth);
+  transition: transform 0.35s var(--ease-smooth), background 0.35s var(--ease-smooth), border-color 0.35s var(--ease-smooth), box-shadow 0.35s var(--ease-smooth);
+  will-change: transform;
   position: relative;
   overflow: hidden;
 }
@@ -446,22 +453,26 @@
   letter-spacing: 0.02em;
   padding: 0.8rem 1.8rem;
   box-shadow: 0 8px 28px rgba(107, 140, 255, 0.32), 0 2px 8px rgba(27, 31, 59, 0.04);
-  transition: all 0.35s var(--ease-smooth);
+  transition: transform 0.35s var(--ease-smooth), box-shadow 0.35s var(--ease-smooth), background 0.35s var(--ease-smooth);
+  will-change: transform;
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  transform: translateZ(0);
 }
 
 .btn-primary::before {
   content: '';
   position: absolute;
   top: 0;
-  left: -100%;
+  left: 0;
   width: 100%;
   height: 100%;
   background: rgba(255, 255, 255, 0.15);
-  transition: left 0.3s ease;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
   pointer-events: none;
+  will-change: transform;
 }
 
 .btn-primary:hover {
@@ -471,7 +482,7 @@
 }
 
 .btn-primary:hover::before {
-  left: 100%;
+  transform: translateX(100%);
 }
 
 .btn-primary:active {
@@ -498,10 +509,12 @@
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   box-shadow: 0 6px 20px rgba(27, 31, 59, 0.04), var(--neu-inset-sm);
-  transition: all 0.35s var(--ease-smooth);
+  transition: transform 0.35s var(--ease-smooth), box-shadow 0.35s var(--ease-smooth), background 0.35s var(--ease-smooth), border-color 0.35s var(--ease-smooth);
+  will-change: transform;
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  transform: translateZ(0);
 }
 
 .btn-secondary:hover {
@@ -526,8 +539,10 @@
   font-size: 0.95rem;
   letter-spacing: 0.02em;
   padding: 0.75rem 1.6rem;
-  transition: all 0.35s var(--ease-smooth);
+  transition: transform 0.35s var(--ease-smooth), box-shadow 0.35s var(--ease-smooth), background 0.35s var(--ease-smooth), border-color 0.35s var(--ease-smooth), color 0.35s var(--ease-smooth);
+  will-change: transform;
   cursor: pointer;
+  transform: translateZ(0);
 }
 
 .btn-outline:hover {
@@ -607,7 +622,7 @@ th {
 
 tbody tr {
   border-bottom: 1px solid rgba(107, 140, 255, 0.08);
-  transition: all 0.25s ease;
+  transition: background 0.25s ease, backdrop-filter 0.25s ease;
 }
 
 tbody tr:hover {
@@ -774,8 +789,9 @@ dialog::backdrop {
   border: 1px solid rgba(107, 140, 255, 0.14);
   color: #7a8099;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
   font-weight: 600;
+  will-change: background, color;
 }
 
 .pagination-item:hover {

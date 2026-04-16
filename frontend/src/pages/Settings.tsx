@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Save, LogOut, Mail, AlertCircle, CheckCircle2, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +30,8 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
   const [emailStatus, setEmailStatus] = useState<{ hasEmail: boolean; isVerified: boolean; email?: string }>({ hasEmail: false, isVerified: false });
   const [loadingEmailStatus, setLoadingEmailStatus] = useState(true);
   const [sendingVerification, setSendingVerification] = useState(false);
+  const profileSectionRef = useRef<HTMLDivElement | null>(null);
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -74,17 +76,24 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
       return;
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const currentEmail = emailStatus.email?.trim().toLowerCase();
+    if (emailStatus.hasEmail && currentEmail && currentEmail === normalizedEmail) {
+      setEmailError("Enter a different email to change it.");
+      return;
+    }
+
     setEmailUpdating(true);
     setEmailError("");
     try {
       // Step 1: Update email
       const response = await apiJson("/auth/update-email", {
         method: "POST",
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({ email: normalizedEmail }),
       });
 
       if (response.success) {
-        setEmailStatus({ hasEmail: true, isVerified: false, email: email.trim().toLowerCase() });
+        setEmailStatus({ hasEmail: true, isVerified: false, email: normalizedEmail });
         setEmail("");
         
         // Step 2: Send verification email automatically
@@ -113,7 +122,14 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
     } finally {
       setEmailUpdating(false);
     }
-  }, [email]);
+  }, [email, emailStatus.email, emailStatus.hasEmail]);
+
+  const handleStartEmailChange = useCallback(() => {
+    setEmail(emailStatus.email ?? "");
+    setEmailError("");
+    profileSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => emailInputRef.current?.focus(), 250);
+  }, [emailStatus.email]);
 
   const handleSendVerificationEmail = useCallback(async () => {
     setSendingVerification(true);
@@ -195,7 +211,7 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
       </motion.div>
 
       {/* Profile Section */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+      <motion.div ref={profileSectionRef} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         <Card className="glass-card border-white/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -254,6 +270,7 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
                 Email Address
               </Label>
               <Input
+                ref={emailInputRef}
                 id="email"
                 type="email"
                 value={email}
@@ -290,7 +307,7 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
                 disabled={!email.trim() || emailUpdating}
               >
                 <Mail className="h-4 w-4" />
-                {emailUpdating ? "Sending..." : "Add Email & Send Link"}
+                {emailUpdating ? "Sending..." : emailStatus.hasEmail ? "Change Email & Send Link" : "Add Email & Send Link"}
               </Button>
             </div>
           </CardContent>
@@ -346,17 +363,30 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
                 </div>
               )}
 
-              {emailStatus.hasEmail && !emailStatus.isVerified && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSendVerificationEmail}
-                  disabled={sendingVerification}
-                  className="rounded-lg gap-2 text-xs"
-                >
-                  <Send className="h-3 w-3" />
-                  {sendingVerification ? "Sending..." : "Resend Verification Email"}
-                </Button>
+              {emailStatus.hasEmail && (
+                <div className="flex flex-wrap gap-2">
+                  {!emailStatus.isVerified && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendVerificationEmail}
+                      disabled={sendingVerification}
+                      className="rounded-lg gap-2 text-xs"
+                    >
+                      <Send className="h-3 w-3" />
+                      {sendingVerification ? "Sending..." : "Resend Verification Email"}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStartEmailChange}
+                    className="rounded-lg gap-2 text-xs"
+                  >
+                    <Mail className="h-3 w-3" />
+                    Change Email
+                  </Button>
+                </div>
               )}
             </div>
 

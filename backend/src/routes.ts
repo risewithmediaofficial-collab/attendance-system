@@ -1732,5 +1732,127 @@ export function apiRouter(): Router {
     res.json(result);
   });
 
+  // ========== ATTENDANCE SETTINGS ENDPOINTS ==========
+
+  // Get attendance settings (admin only)
+  r.get("/attendance/settings", authMiddleware, requireAdmin, async (req, res) => {
+    try {
+      // Import dynamically to avoid circular dependencies
+      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const settingsService = new AttendanceSettingsService();
+      const result = await settingsService.getSettings();
+      
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to fetch settings" });
+    }
+  });
+
+  // Update attendance date range settings (admin only)
+  r.post("/attendance/settings/date-range", authMiddleware, requireAdmin, async (req, res) => {
+    const { startDate, endDate, calculationMode, lastNDays, presentDaysRequired } = req.body;
+
+    // Validate input
+    if (!startDate || !endDate) {
+      res.status(400).json({ error: "Start date and end date are required" });
+      return;
+    }
+
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+      res.status(400).json({ error: "Dates must be in YYYY-MM-DD format" });
+      return;
+    }
+
+    // Validate that start date is before end date
+    if (new Date(startDate) > new Date(endDate)) {
+      res.status(400).json({ error: "Start date must be before end date" });
+      return;
+    }
+
+    try {
+      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const settingsService = new AttendanceSettingsService();
+      const result = await settingsService.updateDateRangeSettings(
+        startDate,
+        endDate,
+        calculationMode,
+        lastNDays,
+        presentDaysRequired
+      );
+
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to update settings" });
+    }
+  });
+
+  // Get attendance percentage for a member (admin only)
+  r.get("/attendance/percentage/:memberId", authMiddleware, requireAdmin, async (req, res) => {
+    const { memberId } = req.params;
+
+    if (!memberId) {
+      res.status(400).json({ error: "Member ID is required" });
+      return;
+    }
+
+    try {
+      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const settingsService = new AttendanceSettingsService();
+      const result = await settingsService.calculateAttendancePercentage(memberId);
+
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to calculate percentage" });
+    }
+  });
+
+  // Get attendance percentage for all members (admin only)
+  r.get("/attendance/percentage", authMiddleware, requireAdmin, async (req, res) => {
+    try {
+      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const settingsService = new AttendanceSettingsService();
+      const result = await settingsService.calculateAllMembersAttendancePercentage();
+
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to calculate percentages" });
+    }
+  });
+
+  // Reset attendance settings to default (admin only)
+  r.post("/attendance/settings/reset", authMiddleware, requireAdmin, async (req, res) => {
+    try {
+      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const settingsService = new AttendanceSettingsService();
+      const result = await settingsService.resetSettings();
+
+      if (result.success) {
+        res.json({ message: result.message });
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to reset settings" });
+    }
+  });
+
   return r;
 }

@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, User, Shield, BadgeCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, User as UserIcon, Shield, BadgeCheck } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { cn } from "@/lib/utils";
 
@@ -315,7 +315,7 @@ export default function Members() {
             const r = m.role ?? "Intern";
             const initials = getInitials(m.name);
             const icon =
-              r === "Admin" ? <Shield className="h-4 w-4" /> : r === "Employee" ? <BadgeCheck className="h-4 w-4" /> : <User className="h-4 w-4" />;
+              r === "Admin" ? <Shield className="h-4 w-4" /> : r === "Employee" ? <BadgeCheck className="h-4 w-4" /> : <UserIcon className="h-4 w-4" />;
             return (
               <motion.div
                 key={m.id}

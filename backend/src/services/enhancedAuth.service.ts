@@ -36,21 +36,21 @@ export class EnhancedAuthService {
       const passwordHash = await bcrypt.hash(userData.password, saltRounds);
 
       // Generate verification token
-      const { token, expiry } = this.emailService.generateToken();
+      const { token, hashedToken, expiry } = this.emailService.generateToken();
 
       // Create user
       const user = new User({
         _id: `user_${Date.now()}`,
         ...userData,
         passwordHash,
-        emailVerificationToken: token,
+        emailVerificationToken: hashedToken, // Store hashed token
         emailVerificationExpires: expiry,
         isEmailVerified: false,
       });
 
       await user.save();
 
-      // Send verification email
+      // Send verification email with raw token (user will receive this)
       await this.emailService.sendEmailVerification(userData.email, token);
 
       return {
@@ -73,8 +73,11 @@ export class EnhancedAuthService {
   // Verify email
   async verifyEmail(token: string): Promise<ApiResponse> {
     try {
+      // Hash the incoming token to compare with stored hashed token
+      const hashedToken = this.emailService.hashToken(token);
+
       const user = await User.findOne({
-        emailVerificationToken: token,
+        emailVerificationToken: hashedToken,
         emailVerificationExpires: { $gt: Date.now() }
       });
 
@@ -390,16 +393,16 @@ export class EnhancedAuthService {
       }
 
       // Generate new verification token
-      const { token, expiry } = this.emailService.generateToken();
+      const { token, hashedToken, expiry } = this.emailService.generateToken();
 
       // Update email and reset verification
       user.email = newEmail.trim().toLowerCase();
       user.isEmailVerified = false;
-      user.emailVerificationToken = token;
+      user.emailVerificationToken = hashedToken; // Store hashed token
       user.emailVerificationExpires = expiry;
       await user.save();
 
-      // Send verification email
+      // Send verification email with raw token
       await this.emailService.sendEmailVerification(newEmail.trim().toLowerCase(), token);
 
       return {
@@ -413,4 +416,56 @@ export class EnhancedAuthService {
       };
     }
   }
+
+  // Resend email verification for authenticated user
+  async sendVerificationEmail(userId: string): Promise<ApiResponse> {
+    try {
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return {
+          success: false,
+          error: 'User not found'
+        };
+      }
+
+      // Check if user has email set up
+      if (!user.email || user.email.trim() === '') {
+        return {
+          success: false,
+          error: 'No email address set for this account'
+        };
+      }
+
+      // Check if email is already verified
+      if (user.isEmailVerified) {
+        return {
+          success: false,
+          error: 'Email is already verified'
+        };
+      }
+
+      // Generate new verification token
+      const { token, hashedToken, expiry } = this.emailService.generateToken();
+
+      // Update verification token and expiry
+      user.emailVerificationToken = hashedToken; // Store hashed token
+      user.emailVerificationExpires = expiry;
+      await user.save();
+
+      // Send verification email with raw token
+      await this.emailService.sendEmailVerification(user.email, token);
+
+      return {
+        success: true,
+        message: 'Verification email sent. Please check your email.'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send verification email'
+      };
+    }
+  }
 }
+

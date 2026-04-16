@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Scroll, Clock, MessageSquare, User } from "lucide-react";
@@ -56,7 +56,7 @@ function formatTime(timestamp: string) {
   return date.toLocaleDateString();
 }
 
-export function MiniActivityPanel({
+export const MiniActivityPanel = memo(function MiniActivityPanelComponent({
   limit = 10,
   compact = false,
   showScroll = true,
@@ -165,12 +165,12 @@ export function MiniActivityPanel({
       )}
     </Card>
   );
-}
+});
 
-export function ActivityPanelSidebar() {
+export const ActivityPanelSidebar = memo(function ActivityPanelSidebarComponent() {
   return (
     <div className="w-80">
       <MiniActivityPanel limit={15} showScroll={true} />
     </div>
   );
-}
+});

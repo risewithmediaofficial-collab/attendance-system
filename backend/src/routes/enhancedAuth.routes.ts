@@ -7,7 +7,8 @@ import {
   resetPassword,
   changePassword,
   checkEmailStatus,
-  updateEmail
+  updateEmail,
+  sendVerificationEmail
 } from '../controllers/enhancedAuth.controller.js';
 import { authenticateToken } from '../middleware/auth.middleware.js';
 import { authLimiter } from '../middleware/rateLimit.middleware.js';
@@ -34,5 +35,6 @@ router.post('/reset-password', authLimiter, validateBody(ResetPasswordSchema), r
 router.post('/change-password', authenticateToken, validateBody(ChangePasswordSchema), changePassword);
 router.get('/check-email-status', authenticateToken, checkEmailStatus);
 router.post('/update-email', authenticateToken, validateBody(RegisterSchema), updateEmail);
+router.post('/send-verification', authenticateToken, sendVerificationEmail);
 
 export default router;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, memo } from "react";
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { AlertCircle, CheckCircle2, TrendingUp, Users } from "lucide-react";
@@ -82,7 +82,7 @@ function SmartInsightCard({ insight, index }: { insight: SmartInsight; index: nu
   );
 }
 
-export function SmartInsights({
+export const SmartInsights = memo(function SmartInsightsComponent({
   maxItems = 4,
   userMemberId,
   compact = false,
@@ -248,9 +248,9 @@ export function SmartInsights({
       )}
     </div>
   );
-}
+});
 
-export function SmartInsightsWidget({ userMemberId }: { userMemberId?: string }) {
+export const SmartInsightsWidget = memo(function SmartInsightsWidgetComponent({ userMemberId }: { userMemberId?: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -260,4 +260,4 @@ export function SmartInsightsWidget({ userMemberId }: { userMemberId?: string })
       <SmartInsights userMemberId={userMemberId} maxItems={4} />
     </div>
   );
-}
+});

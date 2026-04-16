@@ -1,0 +1,260 @@
+/* OPTIMIZED ANIMATIONS FOR MOBILE PERFORMANCE */
+/* Removed heavy effects, added mobile detection */
+
+/* ========================================
+   KEYFRAME ANIMATIONS - GPU ACCELERATED
+   ======================================== */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtleFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* MOBILE: Disable intense animations */
+@media (max-width: 768px) {
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes subtleFloat {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+/* ========================================
+   ANIMATION CLASSES - PERFORMANCE OPTIMIZED
+   ======================================== */
+
+/* Only use will-change on elements that actually animate */
+.motion-card,
+.motion-container,
+.motion-button {
+  will-change: auto; /* Disable globally, only enable when needed */
+}
+
+/* Animations on desktop */
+@media (min-width: 769px) {
+  .motion-card,
+  .motion-container {
+    animation: fadeInUp 0.25s ease-out; /* Reduced from 0.35s */
+    will-change: transform, opacity;
+  }
+}
+
+/* Mobile: Skip animation, just show instantly */
+@media (max-width: 768px) {
+  .motion-card,
+  .motion-container {
+    animation: fadeInUp 0.01ms ease-out; /* Skip animation on mobile */
+    will-change: auto;
+  }
+}
+
+/* Button interactions - desktop only */
+@media (hover: hover) and (pointer: fine) {
+  .motion-button {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    will-change: transform;
+  }
+
+  .motion-button:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* Mobile: No hover effects */
+@media (hover: none) and (pointer: coarse) {
+  .motion-button {
+    transition: none;
+    will-change: auto;
+  }
+
+  .motion-button:hover {
+    transform: none;
+  }
+
+  .motion-button:active {
+    opacity: 0.8; /* Tap feedback instead of transform */
+  }
+}
+
+/* ========================================
+   REDUCED MOTION SUPPORT
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    animation-delay: 0 !important;
+    transition-delay: 0 !important;
+  }
+
+  .float-gentle {
+    animation: none;
+  }
+}
+
+/* ========================================
+   FLOAT ANIMATION - Desktop only
+   ======================================== */
+
+@media (min-width: 769px) {
+  .float-gentle {
+    animation: subtleFloat 3s ease-in-out infinite;
+  }
+}
+
+@media (max-width: 768px) {
+  .float-gentle {
+    animation: none;
+  }
+}
+
+/* ========================================
+   SCROLL PERFORMANCE
+   ======================================== */
+
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Disable smooth scroll on low-end devices for performance */
+@media (max-width: 480px) {
+  .smooth-scroll {
+    scroll-behavior: auto;
+  }
+}
+
+/* ========================================
+   TRANSITION UTILITIES
+   ======================================== */
+
+/* Fast transitions only */
+.transition-fast {
+  transition: all 0.15s ease-out;
+}
+
+.transition-none {
+  transition: none;
+}
+
+/* Mobile: Disable transitions for faster interface */
+@media (max-width: 768px) {
+  .transition-fast {
+    transition: none;
+  }
+}
+
+/* ========================================
+   STAGGER ANIMATION - Desktop only
+   ======================================== */
+
+/* Use for dashboard cards on desktop only */
+@media (min-width: 769px) {
+  .stagger-item {
+    animation: fadeInUp 0.25s ease-out;
+  }
+
+  .stagger-item:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .stagger-item:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .stagger-item:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .stagger-item:nth-child(4) {
+    animation-delay: 150ms;
+  }
+  .stagger-item:nth-child(5) {
+    animation-delay: 200ms;
+  }
+  .stagger-item:nth-child(n+6) {
+    animation-delay: 250ms;
+  }
+}
+
+/* Mobile: No stagger */
+@media (max-width: 768px) {
+  .stagger-item {
+    animation: none;
+  }
+}
+
+/* ========================================
+   SPECIAL EFFECTS - Desktop only
+   ======================================== */
+
+@media (min-width: 769px) {
+  .glass-motion-card {
+    animation: fadeInUp 0.25s ease-out;
+  }
+}
+
+@media (max-width: 768px) {
+  .glass-motion-card {
+    animation: none;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY: respect user motion preferences
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-pulse,
+  .motion-shake,
+  .motion-fade-in,
+  .motion-slide-in {
+    animation: none;
+  }
+}
+
+/* ========================================
+   PERFORMANCE: disable animations on slow networks
+   ======================================== */
+
+@media (max-width: 480px) {
+  /* Extra strict on mobile phones */
+  body {
+    --animation-disabled: true;
+  }
+
+  * {
+    animation: none;
+    transition: none;
+    will-change: auto;
+  }
+}

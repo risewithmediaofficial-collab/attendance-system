@@ -1,0 +1,258 @@
+/* OPTIMIZED GLASSMORPHISM FOR MOBILE PERFORMANCE */
+/* Removes expensive blur filters on mobile, keeps desktop aesthetic */
+
+/* ========================================
+   GLASS SOFT - Light blur effect
+   Desktop: subtle blur | Mobile: solid background
+   ======================================== */
+
+.glass-soft {
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+/* Desktop: Add blur effect */
+@media (min-width: 769px) {
+  .glass-soft {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+/* Mobile: Simple solid background (NO BLUR) */
+@media (max-width: 768px) {
+  .glass-soft {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* ========================================
+   GLASS STRONG - Heavy blur effect
+   Desktop: strong blur | Mobile: solid background
+   ======================================== */
+
+.glass-strong {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+/* Desktop: Heavy blur */
+@media (min-width: 769px) {
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.76);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Mobile: Solid background with single shadow (perf optimized) */
+@media (max-width: 768px) {
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06); /* Single, light shadow */
+  }
+}
+
+/* ========================================
+   GLASS OUTLINE
+   ======================================== */
+
+.glass-outline {
+  border: 1px solid rgba(0, 0, 0, 0.14);
+}
+
+/* ========================================
+   TEXT COLORS
+   ======================================== */
+
+.text-soft {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.text-strong {
+  color: rgba(0, 0, 0, 0.88);
+}
+
+/* ========================================
+   SURFACE GRADIENT - Simplified for mobile
+   ======================================== */
+
+.surface-gradient {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(241, 241, 243, 0.8));
+}
+
+/* Mobile: Reduce gradient complexity */
+@media (max-width: 768px) {
+  .surface-gradient {
+    background: rgba(255, 255, 255, 0.95);
+  }
+}
+
+/* ========================================
+   APP SCENE & LAYOUT
+   ======================================== */
+
+.app-scene {
+  position: relative;
+  isolation: isolate;
+}
+
+/* ========================================
+   APP BUBBLES - Hide on mobile (CRITICAL FIX)
+   ======================================== */
+
+.app-bubble {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Desktop: Show with blur effect */
+@media (min-width: 769px) {
+  .app-bubble {
+    filter: blur(10px);
+  }
+}
+
+/* Mobile: Hide completely - expensive blur effect */
+@media (max-width: 768px) {
+  .app-bubble {
+    display: none;
+    filter: none;
+  }
+}
+
+/* ========================================
+   APP BUBBLE - Light variant
+   ======================================== */
+
+.app-bubble.light {
+  background: radial-gradient(circle at 30% 30%, rgba(250, 253, 255, 0.8), rgba(238, 243, 250, 0.4) 62%, transparent 76%);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+}
+
+/* Desktop only: Add complex inset shadows */
+@media (min-width: 769px) {
+  .app-bubble.light {
+    box-shadow: inset -8px -10px 20px rgba(255, 255, 255, 0.42), inset 8px 8px 16px rgba(143, 154, 171, 0.18);
+  }
+}
+
+/* ========================================
+   APP BUBBLE - Dark variant
+   ======================================== */
+
+.app-bubble.dark {
+  background: radial-gradient(circle at 30% 30%, rgba(10, 14, 24, 0.74), rgba(20, 27, 39, 0.18) 60%, transparent 72%);
+}
+
+/* ========================================
+   APP SHELL - Main container
+   Desktop: heavy blur | Mobile: light effect
+   ======================================== */
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+}
+
+/* Desktop: Full glass effect */
+@media (min-width: 769px) {
+  .app-shell {
+    background: linear-gradient(155deg, rgba(252, 254, 255, 0.58), rgba(242, 247, 252, 0.35));
+    backdrop-filter: blur(22px) saturate(1.15);
+    -webkit-backdrop-filter: blur(22px) saturate(1.15);
+    box-shadow:
+      0 28px 64px rgba(25, 31, 43, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      inset 0 -1px 0 rgba(118, 130, 149, 0.12);
+  }
+}
+
+/* Mobile: Simple solid background (NO BLUR) */
+@media (max-width: 768px) {
+  .app-shell {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); /* Single light shadow */
+    border-radius: 16px; /* Smaller radius on mobile */
+  }
+}
+
+/* ========================================
+   APP SHELL - Pseudo-element border
+   ======================================== */
+
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+}
+
+/* Mobile: Simplify border */
+@media (max-width: 768px) {
+  .app-shell::before {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* ========================================
+   REDUCED MOTION - Disable all effects
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-soft,
+  .glass-strong,
+  .app-bubble,
+  .app-shell {
+    filter: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: none;
+  }
+}
+
+/* ========================================
+   ADDITIONAL GLASS UTILITIES
+   ======================================== */
+
+.glass-input {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+@media (min-width: 769px) {
+  .glass-input {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
+@media (max-width: 768px) {
+  .glass-input {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* ========================================
+   DEBUG: Performance testing
+   Uncomment to see rendering performance
+   ======================================== */
+
+/* Enable Chrome DevTools Paint Flashing to verify no jank */
+/* .app-shell { will-change: auto; } */
+/* .app-bubble { will-change: auto; } */

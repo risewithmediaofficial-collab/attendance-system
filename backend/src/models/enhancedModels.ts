@@ -81,7 +81,14 @@ const CompanySettingsSchema = new mongoose.Schema(
       date: String, // YYYY-MM-DD
       name: String,
       type: { type: String, enum: ['National', 'Company', 'Optional'] }
-    }]
+    }],
+    // Attendance percentage calculation settings
+    attendancePercentageStartDate: { type: String }, // YYYY-MM-DD format
+    attendancePercentageEndDate: { type: String }, // YYYY-MM-DD format
+    attendanceCalculationMode: { type: String, enum: ['date-range', 'last-n-days'], default: 'date-range' },
+    attendanceLastNDays: { type: Number, default: 30 }, // If using last-n-days mode
+    presentDaysRequired: { type: Number, default: 1 }, // Minimum days required for calculation
+    updatedAt: { type: Number, default: () => Date.now() }
   },
   { _id: false }
 );

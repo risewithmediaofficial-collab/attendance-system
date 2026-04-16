@@ -102,3 +102,17 @@ export const updateEmail = asyncHandler(async (req: Request, res: Response): Pro
   
   return await authService.updateEmail(userId, email);
 });
+
+// Send verification email (resend for already added email)
+export const sendVerificationEmail = asyncHandler(async (req: Request, res: Response): Promise<ApiResponse> => {
+  const userId = req.user?.userId;
+  
+  if (!userId) {
+    return {
+      success: false,
+      error: 'User not authenticated'
+    };
+  }
+  
+  return await authService.sendVerificationEmail(userId);
+});
