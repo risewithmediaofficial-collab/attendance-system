@@ -278,18 +278,19 @@ export const AppSidebar = memo(function AppSidebarComponent({
       className="fixed top-0 left-0 bottom-0 z-40 flex flex-col border-r border-neutral-200 bg-white shadow-none transition-[width] duration-150"
       style={{ width: collapsed ? 72 : 260 }}
     >
-      <div className="flex h-20 items-center border-b border-neutral-200 px-4">
-        <div className="relative shrink-0">
-          <img
-            src={logoImg}
-            alt="Rise With Media"
-            className="h-10 w-10 rounded-xl object-cover"
-          />
-        </div>
+      <div className="flex h-20 items-center justify-between border-b border-neutral-200 px-4">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="relative shrink-0 rounded-lg overflow-hidden shadow-sm">
+            <img
+              src={logoImg}
+              alt="Rise With Media"
+              className="h-10 w-10 object-cover"
+            />
+          </div>
 
-        {!collapsed && (
-          <div className="ml-3 flex flex-col overflow-hidden">
-            <span className="font-bold text-sm text-neutral-900">Rise With</span>
+          {!collapsed && (
+            <div className="flex flex-col overflow-hidden min-w-0">
+              <span className="font-bold text-sm text-neutral-900 leading-tight">Rise With</span>
             <span className="text-xs font-bold text-[#5B7DC8]">Media</span>
           </div>
         )}

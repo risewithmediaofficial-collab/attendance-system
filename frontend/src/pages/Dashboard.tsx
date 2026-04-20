@@ -129,20 +129,22 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 pb-8">
       <div className="border-b border-gray-200 pb-6">
-        <h1 className="text-4xl font-bold text-gray-900">Welcome back, {userInfo.name}!</h1>
-        <p className="text-gray-500 mt-2">{format(new Date(), "EEEE, MMMM d, yyyy")}</p>
+        <h1 className="text-4xl font-bold text-gray-900 tracking-tight\">Welcome back, {userInfo.name}!</h1>
+        <p className=\"text-sm font-medium text-gray-500 mt-2 flex items-center gap-2\">
+          📅 {format(new Date(), \"EEEE, MMMM d, yyyy\")}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {analyticsCards.map(c => (
-          <Card key={c.title} className="bg-white border border-gray-200 rounded-lg hover:shadow-sm hover:border-gray-300 transition-all duration-300 cursor-pointer">
+          <Card key={c.title} className="bg-white border border-gray-200 rounded-lg hover:shadow-md hover:border-gray-300 transition-all duration-300 cursor-pointer shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{c.title}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{c.value}</p>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">{c.title}</p>
+                  <p className="text-3xl font-bold text-gray-900 mt-3">{c.value}</p>
                 </div>
-                <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <div className="h-10 w-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0">
                   <c.icon className="h-5 w-5" style={{ color: "#0066ff" }} />
                 </div>
               </div>
@@ -263,10 +265,10 @@ export default function Dashboard() {
           </Card>
 
           {tasksCalcDueToday.length > 0 && (
-            <Card className="bg-white border border-gray-200 rounded-lg">
+            <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
               <CardHeader className="pb-4 border-b border-gray-100">
-                <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                  <Clock className="w-5 h-5" style={{ color: "#0066ff" }} />
+                <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                  <Clock className="w-4 h-4" style={{ color: "#dc2626" }} />
                   Due Today
                 </CardTitle>
               </CardHeader>
@@ -276,13 +278,13 @@ export default function Dashboard() {
                     <div
                       key={task.id}
                       onClick={() => navigate(`/focus/${task.id}`)}
-                      className="flex items-center justify-between p-3 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer border border-blue-200"
+                      className="flex items-center justify-between p-3 rounded-lg bg-red-50 hover:bg-red-100 transition-colors cursor-pointer border border-red-200 group"
                     >
                       <div>
-                        <p className="text-sm font-medium text-gray-900 hover:text-blue-700">{task.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">{task.status}</p>
+                        <p className="text-sm font-medium text-gray-900 group-hover:text-red-700">{task.title}</p>
+                        <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider font-medium">{task.status}</p>
                       </div>
-                      <div><p className="text-xs font-semibold text-white px-2 py-1 rounded" style={{ backgroundColor: "#0066ff" }}>{task.priority || "Normal"}</p></div>
+                      <div><p className="text-xs font-bold text-white px-3 py-1 rounded-full" style={{ backgroundColor: "#dc2626" }}>{task.priority || "Normal"}</p></div>
                     </div>
                   ))}
                 </div>
@@ -290,11 +292,11 @@ export default function Dashboard() {
             </Card>
           )}
 
-          <Card className="bg-white border border-gray-200 rounded-lg">
+          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-4 border-b border-gray-100">
-              <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" style={{ color: "#0066ff" }} />
-                Completion � Last 7 Days
+              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" style={{ color: "#0066ff" }} />
+                Weekly Performance
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -351,29 +353,43 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white border border-gray-200 rounded-lg">
-            <CardHeader className="pb-4 border-b border-gray-100">
-              <CardTitle className="text-lg text-gray-900">Recent Activity</CardTitle>
+          <Card className=\"bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow\">
+            <CardHeader className=\"pb-4 border-b border-gray-100\">
+              <CardTitle className=\"text-base font-semibold text-gray-900 flex items-center gap-2\">
+                <CheckCircle2 className=\"w-4 h-4\" style={{ color: \"#10b981\" }} />
+                Completed
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <MiniActivityPanel limit={5} compact={true} />
+            <CardContent className=\"p-6 space-y-3\">
+              {completedTasks.length > 0 ? (
+                completedTasks.slice(0, 5).map(task => (
+                  <div
+                    key={task.id}
+                    className=\"group p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer\"\n                    onClick={() => navigate(`/focus/${task.id}`)}\n                  >\n                    <div className=\"flex items-start justify-between gap-2\">\n                      <div className=\"flex-1 min-w-0\">\n                        <p className=\"text-sm font-medium text-gray-900 group-hover:text-green-700 transition-colors line-clamp-1\">\n                          {task.title}\n                        </p>\n                        <p className=\"text-xs text-gray-500 mt-1\">\n                          {task.completedAt ? format(new Date(task.completedAt), \"MMM d\") : format(new Date(task.deadline), \"MMM d\")}\n                        </p>\n                      </div>\n                      <div className=\"flex-shrink-0\">\n                        <span className=\"inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-white text-green-700 border border-green-200\">\n                          ✓ Done\n                        </span>\n                      </div>\n                    </div>\n                  </div>\n                ))\n              ) : (\n                <div className=\"text-center py-6\">\n                  <CheckCircle2 className=\"w-8 h-8 text-gray-300 mx-auto mb-2\" />\n                  <p className=\"text-sm text-gray-500\">No completed tasks yet</p>\n                  <p className=\"text-xs text-gray-400 mt-1\">Complete a task to see it here</p>\n                </div>\n              )}\n            </CardContent>\n          </Card>
+
+          <Card className=\"bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow\">
+            <CardHeader className=\"pb-4 border-b border-gray-100\">
+              <CardTitle className=\"text-base font-semibold text-gray-900\">Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent className=\"p-6\">
+              <MiniActivityPanel limit={4} compact={true} />
             </CardContent>
           </Card>
 
-          <Card className="bg-white border border-gray-200 rounded-lg">
+          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-4 border-b border-gray-100">
-              <CardTitle className="text-lg text-gray-900">Quick Actions</CardTitle>
+              <CardTitle className="text-base font-semibold text-gray-900">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-2">
-              <Button onClick={() => navigate("/tasks")} className="w-full justify-start text-white rounded-lg" style={{ backgroundColor: "#0066ff" }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#0052cc"} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#0066ff"}>
+              <Button onClick={() => navigate("/tasks")} className="w-full justify-start text-white rounded-lg font-medium" style={{ backgroundColor: "#0066ff" }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#0052cc"} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#0066ff"}>
                 <Plus className="w-4 h-4 mr-2" />
                 New Task
               </Button>
-              <Button onClick={() => navigate("/my-work")} variant="outline" className="w-full justify-start border-gray-300 text-gray-900 hover:bg-gray-50 rounded-lg">
+              <Button onClick={() => navigate("/my-work")} variant="outline" className="w-full justify-start border-gray-300 text-gray-900 hover:bg-gray-50 rounded-lg font-medium">
                 <ArrowRight className="w-4 h-4 mr-2" />
                 My Work
               </Button>
-              <Button onClick={() => navigate("/board")} variant="outline" className="w-full justify-start border-gray-300 text-gray-900 hover:bg-gray-50 rounded-lg">
+              <Button onClick={() => navigate("/board")} variant="outline" className="w-full justify-start border-gray-300 text-gray-900 hover:bg-gray-50 rounded-lg font-medium">
                 <Maximize2 className="w-4 h-4 mr-2" />
                 Board
               </Button>

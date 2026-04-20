@@ -45,22 +45,22 @@ export function AppLayout({ children, onLogout }: Props) {
         style={{ marginLeft: sidebarWidth }}
       >
         <header
-          className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-6 lg:px-8 bg-white border-b border-neutral-200"
+          className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-6 lg:px-8 bg-white border-b border-neutral-200 shadow-sm"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {isMobile && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setMobileOpen(true)}
-                className="hover:bg-neutral-100 rounded-2xl"
+                className="hover:bg-neutral-100 rounded-xl"
               >
                 <Menu className="h-5 w-5 text-neutral-600" />
               </Button>
             )}
-            <div className="hidden sm:block">
-              <p className="text-xs font-semibold tracking-wider uppercase text-neutral-400">
-                Platform
+            <div className="hidden sm:block border-r border-neutral-200 pr-4">
+              <p className="text-xs font-bold tracking-widest uppercase text-neutral-500">
+                Management Platform
               </p>
             </div>
           </div>
@@ -72,19 +72,19 @@ export function AppLayout({ children, onLogout }: Props) {
 
             <div className="flex items-center gap-3 pl-4 border-l border-neutral-200">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-neutral-900">{member?.name ?? role}</p>
-                <p className="text-xs text-neutral-500">{role}</p>
+                <p className="text-sm font-bold text-neutral-900">{member?.name ?? role}</p>
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">{role}</p>
               </div>
-              <div className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 bg-neutral-900 text-white">
-                <User className="h-4 w-4 text-white" />
+              <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-50 border border-blue-200">
+                <User className="h-4 w-4 text-blue-600" />
               </div>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-neutral-50 px-3 py-3 md:px-5 md:py-4">
+        <main className="flex-1 overflow-auto bg-gray-50 px-3 py-3 md:px-6 md:py-4">
           <div className="flex-1 min-h-[calc(100vh-5.5rem)]">
-            <div className="app-shell min-h-[calc(100vh-6.5rem)] px-3 py-6 md:px-6 md:py-8">
+            <div className="app-shell min-h-[calc(100vh-6.5rem)] px-0 py-6 md:px-0 md:py-8">
               {children}
             </div>
           </div>
