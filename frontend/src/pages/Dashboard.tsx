@@ -129,9 +129,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 pb-8">
       <div className="border-b border-gray-200 pb-6">
-        <h1 className="text-4xl font-bold text-gray-900 tracking-tight\">Welcome back, {userInfo.name}!</h1>
-        <p className=\"text-sm font-medium text-gray-500 mt-2 flex items-center gap-2\">
-          📅 {format(new Date(), \"EEEE, MMMM d, yyyy\")}
+        <h1 className="text-4xl font-bold text-gray-900 tracking-tight">Welcome back, {userInfo.name}!</h1>
+        <p className="text-sm font-medium text-gray-500 mt-2 flex items-center gap-2">
+          📅 {format(new Date(), "EEEE, MMMM d, yyyy")}
         </p>
       </div>
 
@@ -353,25 +353,53 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className=\"bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow\">
-            <CardHeader className=\"pb-4 border-b border-gray-100\">
-              <CardTitle className=\"text-base font-semibold text-gray-900 flex items-center gap-2\">
-                <CheckCircle2 className=\"w-4 h-4\" style={{ color: \"#10b981\" }} />
+          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-4 border-b border-gray-100">
+              <CardTitle className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" style={{ color: "#10b981" }} />
                 Completed
               </CardTitle>
             </CardHeader>
-            <CardContent className=\"p-6 space-y-3\">
+            <CardContent className="p-6 space-y-3">
               {completedTasks.length > 0 ? (
                 completedTasks.slice(0, 5).map(task => (
                   <div
                     key={task.id}
-                    className=\"group p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer\"\n                    onClick={() => navigate(`/focus/${task.id}`)}\n                  >\n                    <div className=\"flex items-start justify-between gap-2\">\n                      <div className=\"flex-1 min-w-0\">\n                        <p className=\"text-sm font-medium text-gray-900 group-hover:text-green-700 transition-colors line-clamp-1\">\n                          {task.title}\n                        </p>\n                        <p className=\"text-xs text-gray-500 mt-1\">\n                          {task.completedAt ? format(new Date(task.completedAt), \"MMM d\") : format(new Date(task.deadline), \"MMM d\")}\n                        </p>\n                      </div>\n                      <div className=\"flex-shrink-0\">\n                        <span className=\"inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-white text-green-700 border border-green-200\">\n                          ✓ Done\n                        </span>\n                      </div>\n                    </div>\n                  </div>\n                ))\n              ) : (\n                <div className=\"text-center py-6\">\n                  <CheckCircle2 className=\"w-8 h-8 text-gray-300 mx-auto mb-2\" />\n                  <p className=\"text-sm text-gray-500\">No completed tasks yet</p>\n                  <p className=\"text-xs text-gray-400 mt-1\">Complete a task to see it here</p>\n                </div>\n              )}\n            </CardContent>\n          </Card>
+                    className="group p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 transition-all duration-200 border border-green-200 hover:border-green-300 cursor-pointer"
+                    onClick={() => navigate(`/focus/${task.id}`)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 group-hover:text-green-700 transition-colors line-clamp-1">
+                          {task.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {task.completedAt ? format(new Date(task.completedAt), "MMM d") : format(new Date(task.deadline), "MMM d")}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-white text-green-700 border border-green-200">
+                          ✓ Done
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6">
+                  <CheckCircle2 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No completed tasks yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Complete a task to see it here</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-          <Card className=\"bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow\">
-            <CardHeader className=\"pb-4 border-b border-gray-100\">
-              <CardTitle className=\"text-base font-semibold text-gray-900\">Recent Activity</CardTitle>
+          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="pb-4 border-b border-gray-100">
+              <CardTitle className="text-base font-semibold text-gray-900">Recent Activity</CardTitle>
             </CardHeader>
-            <CardContent className=\"p-6\">
+            <CardContent className="p-6">
               <MiniActivityPanel limit={4} compact={true} />
             </CardContent>
           </Card>

@@ -291,9 +291,10 @@ export const AppSidebar = memo(function AppSidebarComponent({
           {!collapsed && (
             <div className="flex flex-col overflow-hidden min-w-0">
               <span className="font-bold text-sm text-neutral-900 leading-tight">Rise With</span>
-            <span className="text-xs font-bold text-[#5B7DC8]">Media</span>
-          </div>
-        )}
+              <span className="text-xs font-bold text-[#5B7DC8]">Media</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <nav
