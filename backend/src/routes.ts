@@ -318,219 +318,249 @@ export function apiRouter(): Router {
   });
 
   r.get("/auth/verify-email", async (req, res) => {
-    const token = typeof req.query?.token === "string" ? req.query.token.trim() : "";
-    if (!token) {
-      res.status(400).json({ success: false, error: "Verification token is required" });
-      return;
+    try {
+      const token = typeof req.query?.token === "string" ? req.query.token.trim() : "";
+      if (!token) {
+        res.status(400).json({ success: false, error: "Verification token is required" });
+        return;
+      }
+
+      const hashedToken = emailService.hashToken(token);
+      const user = await User.findOne({
+        emailVerificationToken: hashedToken,
+        emailVerificationExpires: { $gt: Date.now() },
+      }).lean();
+
+      if (!user) {
+        res.status(400).json({ success: false, error: "Invalid or expired verification token" });
+        return;
+      }
+
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: { isEmailVerified: true },
+          $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
+        },
+      );
+
+      res.json({ success: true, message: "Email verified successfully" });
+    } catch (error) {
+      console.error("Verify email error:", error);
+      res.status(500).json({ success: false, error: "Failed to verify email" });
     }
-
-    const hashedToken = emailService.hashToken(token);
-    const user = await User.findOne({
-      emailVerificationToken: hashedToken,
-      emailVerificationExpires: { $gt: Date.now() },
-    }).lean();
-
-    if (!user) {
-      res.status(400).json({ success: false, error: "Invalid or expired verification token" });
-      return;
-    }
-
-    await User.updateOne(
-      { _id: user._id },
-      {
-        $set: { isEmailVerified: true },
-        $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
-      },
-    );
-
-    res.json({ success: true, message: "Email verified successfully" });
   });
 
   r.get("/auth/check-email-status", authMiddleware, async (req, res) => {
-    if (!req.userId) {
-      res.status(401).json({ success: false, error: "Unauthorized" });
-      return;
-    }
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: "Unauthorized" });
+        return;
+      }
 
-    const user = await User.findById(req.userId).lean();
-    if (!user) {
-      res.status(404).json({ success: false, error: "User not found" });
-      return;
-    }
+      const user = await User.findById(req.userId).lean();
+      if (!user) {
+        res.status(404).json({ success: false, error: "User not found" });
+        return;
+      }
 
-    const hasEmail = typeof user.email === "string" && user.email.trim().length > 0;
-    res.json({
-      success: true,
-      data: {
-        hasEmail,
-        isVerified: Boolean(user.isEmailVerified),
-        email: hasEmail ? user.email : undefined,
-      },
-    });
+      const hasEmail = typeof user.email === "string" && user.email.trim().length > 0;
+      res.json({
+        success: true,
+        data: {
+          hasEmail,
+          isVerified: Boolean(user.isEmailVerified),
+          email: hasEmail ? user.email : undefined,
+        },
+      });
+    } catch (error) {
+      console.error("Check email status error:", error);
+      res.status(500).json({ success: false, error: "Failed to check email status" });
+    }
   });
 
   r.post("/auth/update-email", authMiddleware, async (req, res) => {
-    if (!req.userId) {
-      res.status(401).json({ success: false, error: "Unauthorized" });
-      return;
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: "Unauthorized" });
+        return;
+      }
+
+      const email = normalizeEmail(String(req.body?.email ?? ""));
+      if (!email || !email.includes("@") || !email.includes(".")) {
+        res.status(400).json({ success: false, error: "Invalid email address" });
+        return;
+      }
+
+      const user = await User.findById(req.userId).lean();
+      if (!user) {
+        res.status(404).json({ success: false, error: "User not found" });
+        return;
+      }
+
+      const existingEmailUser = await User.findOne({
+        email,
+        _id: { $ne: req.userId },
+      }).lean();
+      if (existingEmailUser) {
+        res.status(409).json({ success: false, error: "Email already exists" });
+        return;
+      }
+
+      await User.updateOne(
+        { _id: req.userId },
+        {
+          $set: { email, isEmailVerified: false },
+          $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
+        },
+      );
+
+      res.json({
+        success: true,
+        message: "Email updated successfully. Please send a verification email.",
+      });
+    } catch (error) {
+      console.error("Update email error:", error);
+      res.status(500).json({ success: false, error: "Failed to update email" });
     }
-
-    const email = normalizeEmail(String(req.body?.email ?? ""));
-    if (!email || !email.includes("@") || !email.includes(".")) {
-      res.status(400).json({ success: false, error: "Invalid email address" });
-      return;
-    }
-
-    const user = await User.findById(req.userId).lean();
-    if (!user) {
-      res.status(404).json({ success: false, error: "User not found" });
-      return;
-    }
-
-    const existingEmailUser = await User.findOne({
-      email,
-      _id: { $ne: req.userId },
-    }).lean();
-    if (existingEmailUser) {
-      res.status(409).json({ success: false, error: "Email already exists" });
-      return;
-    }
-
-    await User.updateOne(
-      { _id: req.userId },
-      {
-        $set: { email, isEmailVerified: false },
-        $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
-      },
-    );
-
-    res.json({
-      success: true,
-      message: "Email updated successfully. Please send a verification email.",
-    });
   });
 
   r.post("/auth/send-verification", authMiddleware, async (req, res) => {
-    if (!req.userId) {
-      res.status(401).json({ success: false, error: "Unauthorized" });
-      return;
-    }
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: "Unauthorized" });
+        return;
+      }
 
-    const user = await User.findById(req.userId).lean();
-    if (!user) {
-      res.status(404).json({ success: false, error: "User not found" });
-      return;
-    }
-    if (!user.email) {
-      res.status(400).json({ success: false, error: "No email address set for this account" });
-      return;
-    }
-    if (user.isEmailVerified) {
-      res.status(400).json({ success: false, error: "Email is already verified" });
-      return;
-    }
+      const user = await User.findById(req.userId).lean();
+      if (!user) {
+        res.status(404).json({ success: false, error: "User not found" });
+        return;
+      }
+      if (!user.email) {
+        res.status(400).json({ success: false, error: "No email address set for this account" });
+        return;
+      }
+      if (user.isEmailVerified) {
+        res.status(400).json({ success: false, error: "Email is already verified" });
+        return;
+      }
 
-    const { token, hashedToken, expiry } = emailService.generateToken();
-    await User.updateOne(
-      { _id: req.userId },
-      {
-        $set: {
-          emailVerificationToken: hashedToken,
-          emailVerificationExpires: expiry,
+      const { token, hashedToken, expiry } = emailService.generateToken();
+      await User.updateOne(
+        { _id: req.userId },
+        {
+          $set: {
+            emailVerificationToken: hashedToken,
+            emailVerificationExpires: expiry,
+          },
         },
-      },
-    );
+      );
 
-    const sendResult = await emailService.sendEmailVerification(user.email, token);
-    if (!sendResult.success) {
-      res.status(500).json({
-        success: false,
-        error: sendResult.error ?? "Failed to send verification email",
-      });
-      return;
+      const sendResult = await emailService.sendEmailVerification(user.email, token);
+      if (!sendResult.success) {
+        res.status(500).json({
+          success: false,
+          error: sendResult.error ?? "Failed to send verification email",
+        });
+        return;
+      }
+
+      res.json({ success: true, message: "Verification email sent" });
+    } catch (error) {
+      console.error("Send verification error:", error);
+      res.status(500).json({ success: false, error: "Failed to send verification email" });
     }
-
-    res.json({ success: true, message: "Verification email sent" });
   });
 
   r.post("/auth/forgot-password", async (req, res) => {
-    const email = normalizeEmail(String(req.body?.email ?? ""));
-    if (!email || !email.includes("@") || !email.includes(".")) {
-      res.status(400).json({ success: false, error: "Valid email address is required" });
-      return;
-    }
+    try {
+      const email = normalizeEmail(String(req.body?.email ?? ""));
+      if (!email || !email.includes("@") || !email.includes(".")) {
+        res.status(400).json({ success: false, error: "Valid email address is required" });
+        return;
+      }
 
-    const user = await User.findOne({ email }).lean();
-    if (!user) {
-      // Do not reveal whether the email exists.
+      const user = await User.findOne({ email }).lean();
+      if (!user) {
+        // Do not reveal whether the email exists.
+        res.json({
+          success: true,
+          message: "If an account with that email exists, a password reset link has been sent.",
+        });
+        return;
+      }
+
+      const { token, hashedToken } = emailService.generateToken();
+      const resetExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            resetPasswordToken: hashedToken,
+            resetPasswordExpires: resetExpiry,
+          },
+        },
+      );
+
+      const sendResult = await emailService.sendPasswordReset(email, token);
+      if (!sendResult.success) {
+        res.status(500).json({
+          success: false,
+          error: sendResult.error ?? "Failed to send password reset email",
+        });
+        return;
+      }
+
       res.json({
         success: true,
-        message: "If an account with that email exists, a password reset link has been sent.",
+        message: "Password reset link sent to your email.",
       });
-      return;
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ success: false, error: "Failed to process request" });
     }
-
-    const { token, hashedToken } = emailService.generateToken();
-    const resetExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
-    await User.updateOne(
-      { _id: user._id },
-      {
-        $set: {
-          resetPasswordToken: hashedToken,
-          resetPasswordExpires: resetExpiry,
-        },
-      },
-    );
-
-    const sendResult = await emailService.sendPasswordReset(email, token);
-    if (!sendResult.success) {
-      res.status(500).json({
-        success: false,
-        error: sendResult.error ?? "Failed to send password reset email",
-      });
-      return;
-    }
-
-    res.json({
-      success: true,
-      message: "Password reset link sent to your email.",
-    });
   });
 
   r.post("/auth/reset-password", async (req, res) => {
-    const token = String(req.body?.token ?? "").trim();
-    const newPassword = String(req.body?.newPassword ?? "");
+    try {
+      const token = String(req.body?.token ?? "").trim();
+      const newPassword = String(req.body?.newPassword ?? "");
 
-    if (!token || !newPassword) {
-      res.status(400).json({ success: false, error: "Reset token and new password are required" });
-      return;
+      if (!token || !newPassword) {
+        res.status(400).json({ success: false, error: "Reset token and new password are required" });
+        return;
+      }
+      if (newPassword.length < 8) {
+        res.status(400).json({ success: false, error: "Password must be at least 8 characters long" });
+        return;
+      }
+
+      const hashedToken = emailService.hashToken(token);
+      const user = await User.findOne({
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { $gt: Date.now() },
+      }).lean();
+
+      if (!user) {
+        res.status(400).json({ success: false, error: "Invalid or expired reset token" });
+        return;
+      }
+
+      const passwordHash = await hashPassword(newPassword);
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: { passwordHash },
+          $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 },
+        },
+      );
+
+      res.json({ success: true, message: "Password has been reset successfully" });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ success: false, error: "Failed to reset password" });
     }
-    if (newPassword.length < 8) {
-      res.status(400).json({ success: false, error: "Password must be at least 8 characters long" });
-      return;
-    }
-
-    const hashedToken = emailService.hashToken(token);
-    const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() },
-    }).lean();
-
-    if (!user) {
-      res.status(400).json({ success: false, error: "Invalid or expired reset token" });
-      return;
-    }
-
-    const passwordHash = await hashPassword(newPassword);
-    await User.updateOne(
-      { _id: user._id },
-      {
-        $set: { passwordHash },
-        $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 },
-      },
-    );
-
-    res.json({ success: true, message: "Password has been reset successfully" });
   });
 
   r.put("/members", authMiddleware, requireAdmin, async (req, res) => {
@@ -1499,6 +1529,24 @@ export function apiRouter(): Router {
 
     task.updatedAt = Date.now();
     await task.save();
+
+    if (req.role === "Admin") {
+      const targetMemberIds = assigneeIds(task.assignedTo).filter((memberId) => memberId && memberId !== req.memberId);
+
+      if (targetMemberIds.length > 0) {
+        const author = await Member.findById(req.memberId).lean();
+        const preview = text.length > 120 ? `${text.slice(0, 117)}...` : text;
+
+        await UserNotification.create({
+          _id: randomUUID(),
+          title: `New comment on ${task.title}`,
+          message: `${author?.name ?? "Admin"} added a comment: ${preview}`,
+          targetMemberIds,
+          createdAt: Date.now(),
+          createdBy: req.memberId,
+        });
+      }
+    }
     
     // Log activity
     await logActivity(req.memberId, "Added comment", id, text.substring(0, 100));
@@ -1738,7 +1786,7 @@ export function apiRouter(): Router {
   r.get("/attendance/settings", authMiddleware, requireAdmin, async (req, res) => {
     try {
       // Import dynamically to avoid circular dependencies
-      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const { AttendanceSettingsService } = await import("./services/attendanceSettings.service.js");
       const settingsService = new AttendanceSettingsService();
       const result = await settingsService.getSettings();
       
@@ -1755,34 +1803,38 @@ export function apiRouter(): Router {
   // Update attendance date range settings (admin only)
   r.post("/attendance/settings/date-range", authMiddleware, requireAdmin, async (req, res) => {
     const { startDate, endDate, calculationMode, lastNDays, presentDaysRequired } = req.body;
+    const normalizedMode = calculationMode === "last-n-days" ? "last-n-days" : "date-range";
+    const parsedLastNDays = Number(lastNDays);
 
-    // Validate input
-    if (!startDate || !endDate) {
-      res.status(400).json({ error: "Start date and end date are required" });
-      return;
-    }
+    if (normalizedMode === "date-range") {
+      if (!startDate || !endDate) {
+        res.status(400).json({ error: "Start date and end date are required" });
+        return;
+      }
 
-    // Validate date format (YYYY-MM-DD)
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-      res.status(400).json({ error: "Dates must be in YYYY-MM-DD format" });
-      return;
-    }
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        res.status(400).json({ error: "Dates must be in YYYY-MM-DD format" });
+        return;
+      }
 
-    // Validate that start date is before end date
-    if (new Date(startDate) > new Date(endDate)) {
-      res.status(400).json({ error: "Start date must be before end date" });
+      if (new Date(startDate) > new Date(endDate)) {
+        res.status(400).json({ error: "Start date must be before end date" });
+        return;
+      }
+    } else if (!Number.isInteger(parsedLastNDays) || parsedLastNDays < 1 || parsedLastNDays > 365) {
+      res.status(400).json({ error: "Last N Days must be a whole number between 1 and 365" });
       return;
     }
 
     try {
-      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const { AttendanceSettingsService } = await import("./services/attendanceSettings.service.js");
       const settingsService = new AttendanceSettingsService();
       const result = await settingsService.updateDateRangeSettings(
-        startDate,
-        endDate,
-        calculationMode,
-        lastNDays,
+        normalizedMode === "date-range" ? startDate : undefined,
+        normalizedMode === "date-range" ? endDate : undefined,
+        normalizedMode,
+        normalizedMode === "last-n-days" ? parsedLastNDays : undefined,
         presentDaysRequired
       );
 
@@ -1806,7 +1858,7 @@ export function apiRouter(): Router {
     }
 
     try {
-      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const { AttendanceSettingsService } = await import("./services/attendanceSettings.service.js");
       const settingsService = new AttendanceSettingsService();
       const result = await settingsService.calculateAttendancePercentage(memberId);
 
@@ -1823,7 +1875,7 @@ export function apiRouter(): Router {
   // Get attendance percentage for all members (admin only)
   r.get("/attendance/percentage", authMiddleware, requireAdmin, async (req, res) => {
     try {
-      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const { AttendanceSettingsService } = await import("./services/attendanceSettings.service.js");
       const settingsService = new AttendanceSettingsService();
       const result = await settingsService.calculateAllMembersAttendancePercentage();
 
@@ -1840,7 +1892,7 @@ export function apiRouter(): Router {
   // Reset attendance settings to default (admin only)
   r.post("/attendance/settings/reset", authMiddleware, requireAdmin, async (req, res) => {
     try {
-      const { AttendanceSettingsService } = await import("../services/attendanceSettings.service.js");
+      const { AttendanceSettingsService } = await import("./services/attendanceSettings.service.js");
       const settingsService = new AttendanceSettingsService();
       const result = await settingsService.resetSettings();
 
@@ -1851,6 +1903,44 @@ export function apiRouter(): Router {
       }
     } catch (error) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Failed to reset settings" });
+    }
+  });
+
+  // Update office hours and lunch time (admin only)
+  r.post("/attendance/settings/office-hours", authMiddleware, requireAdmin, async (req, res) => {
+    const { officeStartTime, officeEndTime, lunchStartTime, lunchEndTime } = req.body;
+
+    // Validate input
+    if (!officeStartTime || !officeEndTime || !lunchStartTime || !lunchEndTime) {
+      res.status(400).json({ error: "All office hours fields are required" });
+      return;
+    }
+
+    // Validate time format (HH:MM)
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(officeStartTime) || !timeRegex.test(officeEndTime) || 
+        !timeRegex.test(lunchStartTime) || !timeRegex.test(lunchEndTime)) {
+      res.status(400).json({ error: "Times must be in HH:MM format" });
+      return;
+    }
+
+    try {
+      const { AttendanceSettingsService } = await import("./services/attendanceSettings.service.js");
+      const settingsService = new AttendanceSettingsService();
+      const result = await settingsService.updateOfficeHours(
+        officeStartTime,
+        officeEndTime,
+        lunchStartTime,
+        lunchEndTime
+      );
+
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(400).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to update office hours" });
     }
   });
 

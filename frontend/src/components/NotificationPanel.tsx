@@ -108,7 +108,7 @@ function NotificationPanelComponent({ memberId }: NotificationPanelProps) {
       )}
 
       <Dialog open={notifOpen} onOpenChange={setNotifOpen}>
-        <DialogContent className="max-w-md rounded-2xl bg-white/95 backdrop-blur-lg border border-black/10">
+        <DialogContent className="max-w-md rounded-lg bg-white border border-neutral-200">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-foreground">Notifications</DialogTitle>
           </DialogHeader>

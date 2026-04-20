@@ -38,11 +38,9 @@ const Holidays = lazy(() => import("@/pages/Holidays"));
 const Tasks = lazy(() => import("@/pages/Tasks"));
 const MyWork = lazy(() => import("@/pages/MyWork"));
 const Settings = lazy(() => import("@/pages/Settings"));
-const Board = lazy(() => import("@/pages/Board"));
 const Performance = lazy(() => import("@/pages/Performance"));
 const FocusMode = lazy(() => import("@/pages/FocusMode"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
-const ListView = lazy(() => import("@/pages/ListView"));
 const CalendarView = lazy(() => import("@/pages/CalendarView"));
 const ActivityTimeline = lazy(() => import("@/pages/ActivityTimeline"));
 const DailyStatusUpdate = lazy(() => import("@/pages/DailyStatus"));
@@ -125,12 +123,11 @@ function AnimatedRoutes() {
               path="/manage-attendance"
               element={role === "Admin" ? <ManageAttendance /> : <Navigate to="/attendance" replace />}
             />
-            <Route path="/board" element={<Board />} />
-            <Route path="/list" element={<ListView />} />
+            <Route path="/board" element={<Navigate to="/tasks?view=board" replace />} />
             <Route path="/calendar" element={<CalendarView />} />
             <Route path="/activity" element={<ActivityTimeline />} />
             <Route path="/tasks" element={<Tasks />} />
-            <Route path="/my-work" element={role === "Admin" ? <Navigate to="/board" replace /> : <MyWork />} />
+            <Route path="/my-work" element={role === "Admin" ? <Navigate to="/tasks" replace /> : <MyWork />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/reports" element={<WorkReports />} />
             <Route path="/members" element={<Members />} />

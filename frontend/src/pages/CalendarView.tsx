@@ -219,6 +219,7 @@ export function CalendarView() {
           task={selectedTask}
           open={!!selectedTaskId}
           onOpenChange={(open) => !open && setSelectedTaskId(null)}
+          isAdmin={role === "Admin"}
         />
       )}
     </div>

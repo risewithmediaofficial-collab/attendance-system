@@ -95,7 +95,7 @@ export default function Attendance() {
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [calendarMemberId, setCalendarMemberId] = useState<string>(() => me?.id ?? nonAdminMembers[0]?.id ?? "");
 
-  const selectableMembers = role === "Admin" ? nonAdminMembers : me ? [me] : [];
+  const selectableMembers = useMemo(() => (role === "Admin" ? nonAdminMembers : me ? [me] : []), [role, nonAdminMembers, me]);
 
   useEffect(() => {
     if (role !== "Admin" && me) setCalendarMemberId(me.id);
@@ -424,13 +424,25 @@ export default function Attendance() {
 
       <Tabs defaultValue="calendar">
         <TabsList
-          className="p-1 rounded-xl"
-          style={{ background: "rgba(255,255,255,0.55)", border: "1px solid rgba(0,0,0,0.12)", backdropFilter: "blur(16px)" }}
+          className="flex h-auto w-full flex-wrap gap-2 rounded-lg border border-neutral-200 bg-white p-1"
         >
-          <TabsTrigger value="calendar" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">Calendar</TabsTrigger>
-          <TabsTrigger value="table" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">Table</TabsTrigger>
+          <TabsTrigger
+            value="calendar"
+            className="min-h-10 flex-1 rounded-lg px-4 py-2 text-center leading-tight data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-md sm:flex-none"
+          >
+            Calendar
+          </TabsTrigger>
+          <TabsTrigger
+            value="table"
+            className="min-h-10 flex-1 rounded-lg px-4 py-2 text-center leading-tight data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-md sm:flex-none"
+          >
+            Table
+          </TabsTrigger>
           {role === "Admin" && (
-            <TabsTrigger value="pending" className="rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-black data-[state=active]:to-zinc-700 data-[state=active]:text-white data-[state=active]:shadow-md">
+            <TabsTrigger
+              value="pending"
+              className="min-h-10 flex-1 rounded-lg px-4 py-2 text-center leading-tight data-[state=active]:bg-neutral-900 data-[state=active]:text-white data-[state=active]:shadow-md sm:flex-none"
+            >
               Pending Approvals
               {records.filter((r) => r.approvalStatus === "Pending").length > 0 && (
                 <Badge className="ml-2 bg-gray-600 text-white rounded-full h-5 w-5 flex items-center justify-center p-0 text-xs">
@@ -561,15 +573,13 @@ export default function Attendance() {
                     <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Member</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Status</TableHead>
                     <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Approval</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Login/Logout</TableHead>
-                    <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Time Recorded</TableHead>
                     <TableHead className="w-32 text-right font-bold text-xs uppercase tracking-widest text-foreground/80">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredCells.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-16 text-muted-foreground">
+                      <TableCell colSpan={4} className="text-center py-16 text-muted-foreground">
                         No results
                       </TableCell>
                     </TableRow>
@@ -606,12 +616,6 @@ export default function Attendance() {
                               {cell.record.approvalStatus ?? "Approved"}
                             </Badge>
                           ) : "—"}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          {cell.record ? `${cell.record.loginTime} - ${cell.record.logoutTime} (${cell.record.hours}h)` : "—"}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground italic">
-                          {cell.record?.submittedAt ? format(new Date(cell.record.submittedAt), "HH:mm:ss") : "—"}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1 items-center">
@@ -742,8 +746,6 @@ export default function Attendance() {
                     <TableRow className="bg-white/5 hover:bg-white/5 border-b border-white/10">
                       <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Member</TableHead>
                       <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Date</TableHead>
-                      <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Time</TableHead>
-                      <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Hours</TableHead>
                       <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Status</TableHead>
                       <TableHead className="font-bold text-xs uppercase tracking-widest text-foreground/80">Submitted</TableHead>
                       <TableHead className="w-32 text-right font-bold text-xs uppercase tracking-widest text-foreground/80">Actions</TableHead>
@@ -752,7 +754,7 @@ export default function Attendance() {
                   <TableBody>
                     {records.filter((r) => r.approvalStatus === "Pending").length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-16 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-16 text-muted-foreground">
                           No pending approvals
                         </TableCell>
                       </TableRow>
@@ -770,20 +772,11 @@ export default function Attendance() {
                             >
                               <TableCell className="font-semibold">{member?.name ?? "Unknown"}</TableCell>
                               <TableCell className="text-sm">{record.date}</TableCell>
-                              <TableCell className="text-sm whitespace-nowrap">
-                                {record.loginTime} - {record.logoutTime}
-                                {record.lunchStartTime && record.lunchEndTime && (
-                                  <div className="text-xs text-muted-foreground">
-                                    Lunch: {record.lunchStartTime} - {record.lunchEndTime}
-                                  </div>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-sm font-semibold">{record.hours}h</TableCell>
                               <TableCell>
                                 <Badge className={statusClass[record.status]}>{record.status}</Badge>
                               </TableCell>
                               <TableCell className="text-xs text-muted-foreground">
-                                {record.submittedAt ? format(new Date(record.submittedAt), "MMM dd, HH:mm") : "—"}
+                                {record.submittedAt ? format(new Date(record.submittedAt), "MMM dd") : "—"}
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1 items-center">
@@ -966,4 +959,5 @@ function getLast90Days(fromDateIso: string) {
   }
   return out;
 }
+
 

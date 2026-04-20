@@ -49,11 +49,11 @@ function isPastDate(dateStr: string): boolean {
 function priorityColor(priority: TaskPriority): string {
   switch (priority) {
     case "High":
-      return "text-gray-300 bg-white/10";
+      return "border border-red-200 bg-red-50 text-red-700";
     case "Medium":
-      return "text-gray-300 bg-white/5";
+      return "border border-amber-200 bg-amber-50 text-amber-700";
     case "Low":
-      return "text-gray-400 bg-white/5";
+      return "border border-emerald-200 bg-emerald-50 text-emerald-700";
   }
 }
 
@@ -255,8 +255,8 @@ export default function MyWork() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <Card className="glass-card border-white/20">
-                <CardHeader className="border-b border-white/10">
+              <Card className="glass-card border-neutral-200">
+                <CardHeader className="border-b border-neutral-200">
                   <div className="flex items-center gap-3 justify-between">
                     <div className="flex items-center gap-3">
                       {group.icon}
@@ -267,7 +267,7 @@ export default function MyWork() {
                         </p>
                       </div>
                     </div>
-                    <Badge className="bg-white/10 border-white/20 px-3 py-1 rounded-full">
+                    <Badge className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-neutral-700">
                       {group.tasks.length}
                     </Badge>
                   </div>
@@ -290,8 +290,8 @@ export default function MyWork() {
                               exit={{ opacity: 0, x: 20 }}
                               onClick={() => handleTaskClick(task)}
                               className={cn(
-                                "p-3 rounded-lg border border-white/10 bg-white/5 cursor-pointer",
-                                "hover:bg-white/10 hover:border-white/20 transition-all",
+                                "cursor-pointer rounded-lg border border-neutral-200 bg-white p-3",
+                                "transition-all hover:border-neutral-300 hover:bg-neutral-50",
                                 isPastDue && "border-red-500/30 bg-red-500/5"
                               )}
                             >
@@ -308,18 +308,18 @@ export default function MyWork() {
                                       <Flag className="h-3 w-3 mr-1" />
                                       {task.priority}
                                     </Badge>
-                                    <Badge className="bg-white/10 border-white/20 text-xs px-2 py-0.5">
+                                    <Badge className="border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-700">
                                       {format(new Date(task.deadline + "T00:00:00"), "MMM d")}
                                     </Badge>
                                     {isPastDue && (
-                                      <Badge className="bg-red-500/20 text-red-300 text-xs px-2 py-0.5 flex items-center gap-1">
+                                      <Badge className="flex items-center gap-1 border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-700">
                                         <AlertCircle className="h-3 w-3" />
                                         Overdue
                                       </Badge>
                                     )}
                                     {task.isFavorite && (
-                                      <Badge className="bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5">
-                                        ⭐ Favorite
+                                      <Badge className="border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+                                        Favorite
                                       </Badge>
                                     )}
                                   </div>
@@ -329,7 +329,7 @@ export default function MyWork() {
                                   value={task.status}
                                   onValueChange={(v) => handleStatusChange(task.id, v as TaskStatus)}
                                 >
-                                  <SelectTrigger className="w-32 rounded-lg bg-white/5 border-white/10">
+                                  <SelectTrigger className="w-32 rounded-lg bg-white border-neutral-200">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -412,3 +412,4 @@ export default function MyWork() {
     </div>
   );
 }
+

@@ -323,7 +323,7 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
               <p className="text-sm font-medium mb-3 flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 Email Verification
@@ -348,18 +348,18 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
                   {emailStatus.isVerified ? (
                     <>
                       <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                      <span>✅ {emailStatus.email} - Verified</span>
+                      <span>{emailStatus.email} - Verified</span>
                     </>
                   ) : (
                     <>
                       <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                      <span>⚠️ {emailStatus.email} - Verification Pending</span>
+                      <span>{emailStatus.email} - Verification Pending</span>
                     </>
                   )}
                 </motion.div>
               ) : (
                 <div className="text-xs mb-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-blue-600">
-                  💡 Add your email in the Profile section above to secure your account
+                  Add your email in the Profile section above to secure your account
                 </div>
               )}
 
@@ -390,7 +390,7 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
               )}
             </div>
 
-            <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
               <p className="text-sm font-medium mb-3">Password</p>
               <p className="text-xs text-muted-foreground mb-4">
                 Last changed: Never
@@ -575,3 +575,4 @@ const SettingsComponent = function Settings({ onLogout }: SettingsProps) {
 };
 
 export default memo(SettingsComponent);
+

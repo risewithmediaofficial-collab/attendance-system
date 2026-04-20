@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
 import { ArrowLeft, Lock, Eye, EyeOff, Sparkles } from "lucide-react";
-import logoImg from "@/assets/logo.png";
+import logoImg from "@/assets/RISE WITH MEDIA - LOGO.png";
 import { apiJson } from "@/lib/api";
 import { toast } from "sonner";
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { storage } from "../lib/storage";
@@ -20,7 +20,7 @@ interface TimelineEntry {
   timestamp: number;
 }
 
-const actionConfig: Record<string, { icon: any; color: string; label: string }> = {
+const actionConfig: Record<string, { icon: ReactNode; color: string; label: string }> = {
   "Created comment": { icon: <FileText className="w-4 h-4" />, color: "bg-blue-100 text-blue-700", label: "Commented" },
   "Deleted comment": { icon: <FileText className="w-4 h-4" />, color: "bg-red-100 text-red-700", label: "Removed comment" },
   "Task created": { icon: <FileText className="w-4 h-4" />, color: "bg-green-100 text-green-700", label: "Created task" },
@@ -226,7 +226,7 @@ export function ActivityTimeline() {
                           <p className="text-sm text-gray-600">{activity.memberName}</p>
                         </div>
                         <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
-                          {format(new Date(activity.timestamp), "MMM dd, HH:mm")}
+                          {format(new Date(activity.timestamp), "MMM dd")}
                         </span>
                       </div>
 

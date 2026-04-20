@@ -35,6 +35,8 @@ const AttendanceRecordSchema = new mongoose.Schema(
     date: { type: String, required: true }, // YYYY-MM-DD format
     checkInTime: { type: String }, // HH:MM format (server time)
     checkOutTime: { type: String }, // HH:MM format (server time)
+    lunchStartTime: { type: String }, // HH:MM format (server time)
+    lunchEndTime: { type: String }, // HH:MM format (server time)
     workingHours: { type: Number, default: 0 }, // in hours
     status: { 
       type: String, 
@@ -70,11 +72,13 @@ AttendanceRecordSchema.index({ passwordResetToken: 1 }); // Password reset looku
 const CompanySettingsSchema = new mongoose.Schema(
   {
     _id: { type: String, required: true },
-    officeStartTime: { type: String, default: '09:00' }, // 9:00 AM
-    officeEndTime: { type: String, default: '18:00' }, // 6:00 PM
+    officeStartTime: { type: String, default: '09:30' }, // 9:30 AM
+    officeEndTime: { type: String, default: '16:30' }, // 4:30 PM
+    lunchStartTime: { type: String, default: '12:30' }, // 12:30 PM
+    lunchEndTime: { type: String, default: '13:30' }, // 1:30 PM
     lateThreshold: { type: Number, default: 15 }, // 15 minutes grace period
     halfDayThreshold: { type: Number, default: 4 }, // 4 hours minimum
-    autoCheckoutTime: { type: String, default: '18:30' }, // Auto checkout at 6:30 PM
+    autoCheckoutTime: { type: String, default: '16:45' }, // Auto checkout at 4:45 PM
     timezone: { type: String, default: 'Asia/Kolkata' },
     weekendDays: { type: [String], default: ['Saturday', 'Sunday'] },
     holidays: [{

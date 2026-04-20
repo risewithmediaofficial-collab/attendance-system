@@ -9,17 +9,17 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-black/18 bg-white/72 text-black/82 backdrop-blur-sm hover:border-black/28 hover:bg-white/88",
+          "border-neutral-200 bg-white text-neutral-900 hover:border-neutral-300 hover:bg-neutral-50",
         secondary:
-          "border-black/14 bg-zinc-100/75 text-black/68 backdrop-blur-sm hover:bg-zinc-200/70",
+          "border-neutral-200 bg-neutral-100 text-neutral-900 hover:bg-neutral-200",
         destructive:
-          "border-black/22 bg-black/12 text-black/86 backdrop-blur-sm hover:bg-black/20",
+          "border-red-200 bg-red-50 text-red-900 hover:bg-red-100",
         outline:
-          "border-black/24 text-black/75 bg-transparent hover:bg-black/5",
+          "border-neutral-300 text-neutral-700 bg-transparent hover:bg-neutral-50",
         success:
-          "border-black/18 bg-white/70 text-black/78 backdrop-blur-sm hover:bg-zinc-100/70",
+          "border-green-200 bg-green-50 text-green-900 hover:bg-green-100",
         warning:
-          "border-black/20 bg-zinc-100/75 text-black/74 backdrop-blur-sm hover:bg-zinc-200/70",
+          "border-yellow-200 bg-yellow-50 text-yellow-900 hover:bg-yellow-100",
       },
     },
     defaultVariants: {

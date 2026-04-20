@@ -46,7 +46,7 @@ function SmartInsightCard({ insight, index }: { insight: SmartInsight; index: nu
       transition={{ delay: index * 0.1 }}
       className={cn(
         "p-4 rounded-lg border",
-        "bg-gradient-to-br backdrop-blur-md",
+        "bg-gradient-to-br",
         colorClasses[insight.color]
       )}
     >

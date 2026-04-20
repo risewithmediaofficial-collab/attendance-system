@@ -41,11 +41,7 @@ const AppHeader = memo(function AppHeader({
 }) {
   return (
     <header
-      className={`sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-6 lg:px-8 border-b border-white/80
-        ${isMobile 
-          ? "bg-white/95"  /* CRITICAL: Solid background on mobile, no blur */
-          : "bg-white/50 backdrop-blur-lg"  /* Desktop: Keep glass effect */
-        }`}
+      className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 md:px-6 lg:px-8 border-b border-neutral-200 bg-white"
     >
       <div className="flex items-center gap-3">
         {isMobile && (

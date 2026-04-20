@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { storage, type TaskPriority, type TaskStatus } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,11 +37,13 @@ export default function WorkReports() {
   const [filterDueFrom, setFilterDueFrom] = useState("");
   const [filterDueTo, setFilterDueTo] = useState("");
 
-  const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? "Unknown";
+  const getMemberName = useCallback((id: string) => members.find((m) => m.id === id)?.name ?? "Unknown", [members]);
   const assigneeIds = (assignedTo: string | string[]) =>
     Array.isArray(assignedTo) ? assignedTo : [assignedTo];
-  const assigneeLabel = (assignedTo: string | string[]) =>
-    assigneeIds(assignedTo).map(getMemberName).join(", ");
+  const assigneeLabel = useCallback(
+    (assignedTo: string | string[]) => assigneeIds(assignedTo).map(getMemberName).join(", "),
+    [getMemberName],
+  );
 
   const visibleTasks = useMemo(() => {
     let list = [...tasks];
@@ -68,7 +70,7 @@ export default function WorkReports() {
       if (byDue !== 0) return byDue;
       return b.updatedAt - a.updatedAt;
     });
-  }, [tasks, role, me, filterStatus, filterPriority, filterMember, filterDueFrom, filterDueTo, search, members]);
+  }, [tasks, role, me, filterStatus, filterPriority, filterMember, filterDueFrom, filterDueTo, search, assigneeLabel]);
 
   const stats = useMemo(() => {
     const base = role === "Admin" ? tasks : me ? tasks.filter((t) => assigneeIds(t.assignedTo).includes(me.id)) : [];
@@ -81,7 +83,7 @@ export default function WorkReports() {
   }, [tasks, role, me]);
 
   const exportCsv = () => {
-    const headers = ["Task Title", "Priority", "Due Date", "Assignee", "Status", "Description", "Last Updated"];
+    const headers = ["Task Title", "Priority", "Due Date", "Assignee", "Status", "Description", "Last Updated Date"];
     const rows = visibleTasks.map((t) => [
       `"${(t.title || "").replace(/"/g, '""')}"`,
       t.priority,
@@ -89,7 +91,7 @@ export default function WorkReports() {
       `"${assigneeLabel(t.assignedTo).replace(/"/g, '""')}"`,
       t.status,
       `"${(t.description || "").replace(/"/g, '""')}"`,
-      format(new Date(t.updatedAt), "yyyy-MM-dd HH:mm"),
+      format(new Date(t.updatedAt), "yyyy-MM-dd"),
     ]);
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });

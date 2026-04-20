@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -6,14 +6,13 @@ import {
   Check,
   Trash2,
   Star,
-  Clock,
   Tag,
   CheckSquare,
   AlertCircle,
   MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Task, Subtask, ChecklistItem, TaskReminder, Comment } from "@/lib/storageTypes";
+import type { Task, Subtask, ChecklistItem, Comment } from "@/lib/storageTypes";
 import {
   addSubtask,
   updateSubtask,
@@ -24,6 +23,7 @@ import {
   updateTask,
   addComment,
   deleteComment,
+  storage,
 } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -52,27 +52,39 @@ export function TaskDetailsDialog({
   const [checklistInput, setChecklistInput] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [commentInput, setCommentInput] = useState("");
+  const [currentTask, setCurrentTask] = useState<Task | null>(task);
   const [tags, setTags] = useState<string[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [timeSpent, setTimeSpent] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (task) {
-      setTags(task.tags ?? []);
-      setComments(task.comments ?? []);
-      setTimeSpent(task.timeSpent ?? 0);
-    }
-  }, [task]);
+  const syncTaskState = useCallback((taskId: string) => {
+    const latestTask = storage.getTasks().find((entry) => entry.id === taskId) ?? null;
+    setCurrentTask(latestTask);
+    setTags(latestTask?.tags ?? []);
+    setComments(latestTask?.comments ?? []);
+    return latestTask;
+  }, []);
 
-  if (!task) return null;
+  useEffect(() => {
+    if (!task) {
+      setCurrentTask(null);
+      setTags([]);
+      setComments([]);
+      return;
+    }
+    setCurrentTask(task);
+    setTags(task.tags ?? []);
+    setComments(task.comments ?? []);
+  }, [task, open]);
+
+  if (!currentTask) return null;
 
   const handleAddSubtask = async () => {
     if (!subtaskInput.trim()) return;
     setIsLoading(true);
     try {
-      await addSubtask(task.id, subtaskInput.trim());
+      await addSubtask(currentTask.id, subtaskInput.trim());
+      syncTaskState(currentTask.id);
       setSubtaskInput("");
       toast.success("Subtask added");
     } catch (e) {
@@ -84,7 +96,8 @@ export function TaskDetailsDialog({
 
   const handleUpdateSubtask = async (subtaskId: string, completed: boolean) => {
     try {
-      await updateSubtask(task.id, subtaskId, { completed });
+      await updateSubtask(currentTask.id, subtaskId, { completed });
+      syncTaskState(currentTask.id);
     } catch (e) {
       toast.error("Failed to update subtask");
     }
@@ -92,7 +105,8 @@ export function TaskDetailsDialog({
 
   const handleDeleteSubtask = async (subtaskId: string) => {
     try {
-      await deleteSubtask(task.id, subtaskId);
+      await deleteSubtask(currentTask.id, subtaskId);
+      syncTaskState(currentTask.id);
       toast.success("Subtask deleted");
     } catch (e) {
       toast.error("Failed to delete subtask");
@@ -103,7 +117,8 @@ export function TaskDetailsDialog({
     if (!checklistInput.trim()) return;
     setIsLoading(true);
     try {
-      await addChecklistItem(task.id, checklistInput.trim());
+      await addChecklistItem(currentTask.id, checklistInput.trim());
+      syncTaskState(currentTask.id);
       setChecklistInput("");
       toast.success("Checklist item added");
     } catch (e) {
@@ -115,7 +130,8 @@ export function TaskDetailsDialog({
 
   const handleUpdateChecklistItem = async (itemId: string, completed: boolean) => {
     try {
-      await updateChecklistItem(task.id, itemId, { completed });
+      await updateChecklistItem(currentTask.id, itemId, { completed });
+      syncTaskState(currentTask.id);
     } catch (e) {
       toast.error("Failed to update checklist item");
     }
@@ -123,33 +139,49 @@ export function TaskDetailsDialog({
 
   const handleDeleteChecklistItem = async (itemId: string) => {
     try {
-      await deleteChecklistItem(task.id, itemId);
+      await deleteChecklistItem(currentTask.id, itemId);
+      syncTaskState(currentTask.id);
       toast.success("Checklist item deleted");
     } catch (e) {
       toast.error("Failed to delete checklist item");
     }
   };
 
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     if (!tagInput.trim()) return;
     const newTag = tagInput.trim().toLowerCase();
     if (!tags.includes(newTag)) {
-      const updatedTags = [...tags, newTag];
-      setTags(updatedTags);
-      updateTask(task.id, { tags: updatedTags });
+      setIsLoading(true);
+      try {
+        const updatedTags = [...tags, newTag];
+        await updateTask(currentTask.id, { tags: updatedTags });
+        syncTaskState(currentTask.id);
+      } catch (e) {
+        toast.error("Failed to add tag");
+      } finally {
+        setIsLoading(false);
+      }
     }
     setTagInput("");
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
+  const handleRemoveTag = async (tagToRemove: string) => {
     const updatedTags = tags.filter((t) => t !== tagToRemove);
-    setTags(updatedTags);
-    updateTask(task.id, { tags: updatedTags });
+    setIsLoading(true);
+    try {
+      await updateTask(currentTask.id, { tags: updatedTags });
+      syncTaskState(currentTask.id);
+    } catch (e) {
+      toast.error("Failed to remove tag");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleToggleFavorite = async () => {
     try {
-      await updateTask(task.id, { isFavorite: !task.isFavorite });
+      await updateTask(currentTask.id, { isFavorite: !currentTask.isFavorite });
+      syncTaskState(currentTask.id);
     } catch (e) {
       toast.error("Failed to update favorite");
     }
@@ -159,16 +191,8 @@ export function TaskDetailsDialog({
     if (!commentInput.trim()) return;
     setIsLoading(true);
     try {
-      await addComment(task.id, commentInput.trim());
-      // Update local state optimistically
-      const newComment: Comment = {
-        id: Math.random().toString(36),
-        taskId: task.id,
-        memberId: "current_user", // This would be the actual current user
-        text: commentInput.trim(),
-        createdAt: Date.now(),
-      };
-      setComments([...comments, newComment]);
+      await addComment(currentTask.id, commentInput.trim());
+      syncTaskState(currentTask.id);
       setCommentInput("");
       toast.success("Comment added");
     } catch (e) {
@@ -180,59 +204,59 @@ export function TaskDetailsDialog({
 
   const handleDeleteComment = async (commentId: string) => {
     try {
-      await deleteComment(task.id, commentId);
-      setComments(comments.filter((c) => c.id !== commentId));
+      await deleteComment(currentTask.id, commentId);
+      syncTaskState(currentTask.id);
       toast.success("Comment deleted");
     } catch (e) {
       toast.error("Failed to delete comment");
     }
   };
 
-  const subtaskProgress = task.subtasks
-    ? Math.round((task.subtasks.filter((s) => s.completed).length / task.subtasks.length) * 100) || 0
+  const subtaskProgress = currentTask.subtasks
+    ? Math.round((currentTask.subtasks.filter((s) => s.completed).length / currentTask.subtasks.length) * 100) || 0
     : 0;
 
-  const checklistProgress = task.checklist
-    ? Math.round((task.checklist.filter((c) => c.completed).length / task.checklist.length) * 100) || 0
+  const checklistProgress = currentTask.checklist
+    ? Math.round((currentTask.checklist.filter((c) => c.completed).length / currentTask.checklist.length) * 100) || 0
     : 0;
 
-  const isPastDue = new Date(task.deadline) < new Date();
+  const isPastDue = new Date(currentTask.deadline) < new Date();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pr-8">
-          <div className="flex items-start justify-between">
-            <DialogTitle className="text-xl">{task.title}</DialogTitle>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl p-6 sm:p-7">
+        <DialogHeader className="pr-12 pb-1">
+          <div className="flex items-start justify-between gap-3">
+            <DialogTitle className="pr-4 text-2xl leading-tight break-words">{currentTask.title}</DialogTitle>
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleToggleFavorite()}
               className={cn(
-                "p-2 rounded-lg transition-colors",
-                task.isFavorite
-                  ? "text-white bg-white/20"
-                  : "text-muted-foreground hover:bg-white/10"
+                "shrink-0 rounded-lg p-2 transition-colors",
+                currentTask.isFavorite
+                  ? "bg-amber-50 text-amber-600"
+                  : "text-muted-foreground hover:bg-neutral-100"
               )}
             >
-              <Star className="h-5 w-5" fill={task.isFavorite ? "currentColor" : "none"} />
+              <Star className="h-5 w-5" fill={currentTask.isFavorite ? "currentColor" : "none"} />
             </motion.button>
           </div>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 pt-2">
           {/* Description */}
-          {task.description && (
-            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-              <p className="text-sm text-muted-foreground">{task.description}</p>
+          {currentTask.description && (
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+              <p className="text-sm text-neutral-600">{currentTask.description}</p>
             </div>
           )}
 
           {/* Due Date Warning */}
           {isPastDue && (
-            <div className="flex gap-3 items-start p-3 bg-white/10 border border-white/20 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
-              <span className="text-sm text-gray-300">This task is overdue</span>
+            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+              <span className="text-sm font-medium text-red-700">This task is overdue</span>
             </div>
           )}
 
@@ -250,7 +274,7 @@ export function TaskDetailsDialog({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                   >
-                    <Badge className="bg-primary/20 text-primary border border-primary/30 cursor-pointer hover:bg-primary/30 flex gap-1 items-center">
+                    <Badge className="flex cursor-pointer items-center gap-1 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
                       {tag}
                       <button
                         onClick={() => handleRemoveTag(tag)}
@@ -287,29 +311,29 @@ export function TaskDetailsDialog({
           </div>
 
           {/* Subtasks */}
-          {(task.subtasks || isAdmin) && (
+          {(currentTask.subtasks || isAdmin) && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                   <CheckSquare className="h-4 w-4" /> Subtasks
                 </Label>
-                {task.subtasks && task.subtasks.length > 0 && (
+                {currentTask.subtasks && currentTask.subtasks.length > 0 && (
                   <span className="text-xs text-muted-foreground">
                     {subtaskProgress}%
                   </span>
                 )}
               </div>
 
-              {task.subtasks && task.subtasks.length > 0 && (
+              {currentTask.subtasks && currentTask.subtasks.length > 0 && (
                 <div className="space-y-2 mb-3">
                   <AnimatePresence>
-                    {task.subtasks.map((subtask: Subtask) => (
+                    {currentTask.subtasks.map((subtask: Subtask) => (
                       <motion.div
                         key={subtask.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 group"
+                        className="group flex items-center gap-3 rounded-lg p-2 hover:bg-neutral-50"
                       >
                         <Checkbox
                           checked={subtask.completed}
@@ -328,9 +352,9 @@ export function TaskDetailsDialog({
                         {isAdmin && (
                           <button
                             onClick={() => handleDeleteSubtask(subtask.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all"
+                            className="rounded p-1 opacity-0 transition-all hover:bg-neutral-100 group-hover:opacity-100"
                           >
-                            <Trash2 className="h-3 w-3 text-gray-400" />
+                            <Trash2 className="h-3 w-3 text-neutral-500" />
                           </button>
                         )}
                       </motion.div>
@@ -368,29 +392,29 @@ export function TaskDetailsDialog({
           )}
 
           {/* Checklist */}
-          {(task.checklist || isAdmin) && (
+          {(currentTask.checklist || isAdmin) && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                   <Check className="h-4 w-4" /> Checklist
                 </Label>
-                {task.checklist && task.checklist.length > 0 && (
+                {currentTask.checklist && currentTask.checklist.length > 0 && (
                   <span className="text-xs text-muted-foreground">
                     {checklistProgress}%
                   </span>
                 )}
               </div>
 
-              {task.checklist && task.checklist.length > 0 && (
+              {currentTask.checklist && currentTask.checklist.length > 0 && (
                 <div className="space-y-2 mb-3">
                   <AnimatePresence>
-                    {task.checklist.map((item: ChecklistItem) => (
+                    {currentTask.checklist.map((item: ChecklistItem) => (
                       <motion.div
                         key={item.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 group"
+                        className="group flex items-center gap-3 rounded-lg p-2 hover:bg-neutral-50"
                       >
                         <Checkbox
                           checked={item.completed}
@@ -409,9 +433,9 @@ export function TaskDetailsDialog({
                         {isAdmin && (
                           <button
                             onClick={() => handleDeleteChecklistItem(item.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded transition-all"
+                            className="rounded p-1 opacity-0 transition-all hover:bg-neutral-100 group-hover:opacity-100"
                           >
-                            <Trash2 className="h-3 w-3 text-gray-400" />
+                            <Trash2 className="h-3 w-3 text-neutral-500" />
                           </button>
                         )}
                       </motion.div>
@@ -448,17 +472,6 @@ export function TaskDetailsDialog({
             </div>
           )}
 
-          {/* Time Tracking */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Time Spent
-            </Label>
-            <div className="flex gap-2 items-center">
-              <span className="text-2xl font-bold">{timeSpent}</span>
-              <span className="text-sm text-muted-foreground">mins</span>
-            </div>
-          </div>
-
           {/* Comments */}
           <div className="space-y-3">
             <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -475,7 +488,7 @@ export function TaskDetailsDialog({
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="p-3 bg-white/5 rounded-lg group hover:bg-white/10 transition-colors"
+                      className="group rounded-lg border border-neutral-200 bg-neutral-50 p-3 transition-colors hover:bg-neutral-100"
                     >
                       <div className="flex items-start justify-between mb-1">
                         <span className="text-xs font-medium text-muted-foreground">
@@ -484,14 +497,14 @@ export function TaskDetailsDialog({
                         {isAdmin && (
                           <button
                             onClick={() => handleDeleteComment(comment.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/20 rounded transition-all"
+                            className="rounded p-1 opacity-0 transition-all hover:bg-white group-hover:opacity-100"
                           >
-                            <Trash2 className="h-3 w-3 text-gray-400" />
+                            <Trash2 className="h-3 w-3 text-neutral-500" />
                           </button>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground break-words">{comment.text}</p>
-                      <span className="text-xs text-muted-foreground/60 mt-1">
+                      <p className="text-sm text-neutral-700 break-words">{comment.text}</p>
+                      <span className="mt-1 text-xs text-muted-foreground/80">
                         {new Date(comment.createdAt).toLocaleString()}
                       </span>
                     </motion.div>
@@ -527,7 +540,7 @@ export function TaskDetailsDialog({
           </div>
         </div>
 
-        <div className="flex gap-2 justify-end pt-4 border-t border-white/10">
+        <div className="flex justify-end gap-2 border-t border-neutral-200 pt-4">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

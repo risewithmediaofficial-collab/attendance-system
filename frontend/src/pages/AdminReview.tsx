@@ -7,13 +7,6 @@ import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Textarea } from "../components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui/dialog";
 import { AlertCircle, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,13 +50,23 @@ export function AdminReviewDashboard() {
     }
   };
 
+  const resetReviewState = () => {
+    setReviewing(null);
+    setRejectionReason("");
+  };
+
+  const toggleTaskSelection = (taskId: string) => {
+    resetReviewState();
+    setSelectedTask((current) => (current === taskId ? null : taskId));
+  };
+
   const handleApprove = async (taskId: string) => {
     setIsLoading(true);
     try {
       await reviewTaskCompletion(taskId, "approved");
       toast.success("Task approved successfully!");
       setSelectedTask(null);
-      setReviewing(null);
+      resetReviewState();
     } catch (e) {
       toast.error("Failed to approve task");
     } finally {
@@ -81,9 +84,8 @@ export function AdminReviewDashboard() {
     try {
       await reviewTaskCompletion(taskId, "rejected", rejectionReason);
       toast.success("Task rejected and moved back to In Progress");
-      setRejectionReason("");
       setSelectedTask(null);
-      setReviewing(null);
+      resetReviewState();
     } catch (e) {
       toast.error("Failed to reject task");
     } finally {
@@ -182,7 +184,7 @@ export function AdminReviewDashboard() {
                       ? "border-blue-500 bg-blue-50"
                       : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
                   }`}
-                  onClick={() => setSelectedTask(isSelected ? null : task.id)}
+                  onClick={() => toggleTaskSelection(task.id)}
                 >
                   <div className="space-y-3">
                     {/* Header */}
@@ -220,6 +222,7 @@ export function AdminReviewDashboard() {
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
                           className="pt-3 border-t border-gray-200 space-y-3"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           {/* Approval Section */}
                           {reviewing?.id === task.id && reviewing.isApproving ? (
@@ -229,14 +232,20 @@ export function AdminReviewDashboard() {
                               </p>
                               <div className="flex gap-2">
                                 <Button
-                                  onClick={() => handleApprove(task.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleApprove(task.id);
+                                  }}
                                   disabled={isLoading}
                                   className="flex-1 bg-green-600 hover:bg-green-700"
                                 >
                                   {isLoading ? "Approving..." : "Confirm Approve"}
                                 </Button>
                                 <Button
-                                  onClick={() => setReviewing(null)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    resetReviewState();
+                                  }}
                                   disabled={isLoading}
                                   variant="outline"
                                   className="flex-1"
@@ -255,19 +264,23 @@ export function AdminReviewDashboard() {
                                 value={rejectionReason}
                                 onChange={(e) => setRejectionReason(e.target.value)}
                                 className="min-h-20"
+                                onClick={(e) => e.stopPropagation()}
                               />
                               <div className="flex gap-2">
                                 <Button
-                                  onClick={() => handleReject(task.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleReject(task.id);
+                                  }}
                                   disabled={isLoading || !rejectionReason.trim()}
                                   className="flex-1 bg-red-600 hover:bg-red-700"
                                 >
                                   {isLoading ? "Rejecting..." : "Confirm Rejection"}
                                 </Button>
                                 <Button
-                                  onClick={() => {
-                                    setReviewing(null);
-                                    setRejectionReason("");
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    resetReviewState();
                                   }}
                                   disabled={isLoading}
                                   variant="outline"
@@ -280,18 +293,22 @@ export function AdminReviewDashboard() {
                           ) : (
                             <div className="flex gap-2">
                               <Button
-                                onClick={() =>
-                                  setReviewing({ id: task.id, isApproving: true })
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReviewing({ id: task.id, isApproving: true });
+                                  setRejectionReason("");
+                                }}
                                 className="flex-1 bg-green-600 hover:bg-green-700"
                               >
                                 <CheckCircle2 className="w-4 h-4 mr-1" />
                                 Approve
                               </Button>
                               <Button
-                                onClick={() =>
-                                  setReviewing({ id: task.id, isApproving: false })
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReviewing({ id: task.id, isApproving: false });
+                                  setRejectionReason("");
+                                }}
                                 variant="destructive"
                                 className="flex-1"
                               >

@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import logoImg from "@/assets/logo.png";
+import logoImg from "@/assets/RISE WITH MEDIA - LOGO.png";
 import { apiJson } from "@/lib/api";
 
 export default function VerifyEmail() {

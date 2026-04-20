@@ -22,11 +22,9 @@ import Holidays from "@/pages/Holidays";
 import Tasks from "@/pages/Tasks";
 import MyWork from "@/pages/MyWork";
 import Settings from "@/pages/Settings";
-import Board from "@/pages/Board";
 import Performance from "@/pages/Performance";
 import FocusMode from "@/pages/FocusMode";
 import NotFound from "@/pages/NotFound";
-import { ListView } from "@/pages/ListView";
 import { CalendarView } from "@/pages/CalendarView";
 import { ActivityTimeline } from "@/pages/ActivityTimeline";
 import { DailyStatusUpdate } from "@/pages/DailyStatus";
@@ -75,12 +73,11 @@ function AnimatedRoutes() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/manage-attendance" element={role === "Admin" ? <ManageAttendance /> : <Navigate to="/attendance" replace />} />
-          <Route path="/board" element={<Board />} />
-          <Route path="/list" element={<ListView />} />
+          <Route path="/board" element={<Navigate to="/tasks?view=board" replace />} />
           <Route path="/calendar" element={<CalendarView />} />
           <Route path="/activity" element={<ActivityTimeline />} />
           <Route path="/tasks" element={<Tasks />} />
-          <Route path="/my-work" element={role === "Admin" ? <Navigate to="/board" replace /> : <MyWork />} />
+          <Route path="/my-work" element={role === "Admin" ? <Navigate to="/tasks" replace /> : <MyWork />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/reports" element={<WorkReports />} />
           <Route path="/members" element={<Members />} />

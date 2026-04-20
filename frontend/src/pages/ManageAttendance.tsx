@@ -757,7 +757,6 @@ export default function ManageAttendance() {
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-foreground">{row.percentage.toFixed(1)}%</p>
-                    <p className="text-sm text-muted-foreground">Avg {row.averageHours.toFixed(2)}h/day</p>
                   </div>
                 </div>
                 <div className="mt-4">

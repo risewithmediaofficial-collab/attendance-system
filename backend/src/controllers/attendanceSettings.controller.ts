@@ -13,37 +13,43 @@ export const getAttendanceSettings = asyncHandler(async (req: Request, res: Resp
 // Update attendance date range settings
 export const updateAttendanceDateRange = asyncHandler(async (req: Request, res: Response): Promise<ApiResponse> => {
   const { startDate, endDate, calculationMode, lastNDays, presentDaysRequired } = req.body;
-  
-  // Validate input
-  if (!startDate || !endDate) {
-    return {
-      success: false,
-      error: 'Start date and end date are required'
-    };
-  }
+  const normalizedMode = calculationMode === 'last-n-days' ? 'last-n-days' : 'date-range';
+  const parsedLastNDays = Number(lastNDays);
 
-  // Validate date format (YYYY-MM-DD)
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
-    return {
-      success: false,
-      error: 'Dates must be in YYYY-MM-DD format'
-    };
-  }
+  if (normalizedMode === 'date-range') {
+    if (!startDate || !endDate) {
+      return {
+        success: false,
+        error: 'Start date and end date are required'
+      };
+    }
 
-  // Validate that start date is before end date
-  if (new Date(startDate) > new Date(endDate)) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+      return {
+        success: false,
+        error: 'Dates must be in YYYY-MM-DD format'
+      };
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      return {
+        success: false,
+        error: 'Start date must be before end date'
+      };
+    }
+  } else if (!Number.isInteger(parsedLastNDays) || parsedLastNDays < 1 || parsedLastNDays > 365) {
     return {
       success: false,
-      error: 'Start date must be before end date'
+      error: 'Last N Days must be a whole number between 1 and 365'
     };
   }
 
   return await settingsService.updateDateRangeSettings(
-    startDate,
-    endDate,
-    calculationMode,
-    lastNDays,
+    normalizedMode === 'date-range' ? startDate : undefined,
+    normalizedMode === 'date-range' ? endDate : undefined,
+    normalizedMode,
+    normalizedMode === 'last-n-days' ? parsedLastNDays : undefined,
     presentDaysRequired
   );
 });
@@ -70,4 +76,34 @@ export const getAllMembersAttendancePercentage = asyncHandler(async (req: Reques
 // Reset attendance settings to default
 export const resetAttendanceSettings = asyncHandler(async (req: Request, res: Response): Promise<ApiResponse> => {
   return await settingsService.resetSettings();
+});
+
+// Update office hours and lunch time
+export const updateOfficeHours = asyncHandler(async (req: Request, res: Response): Promise<ApiResponse> => {
+  const { officeStartTime, officeEndTime, lunchStartTime, lunchEndTime } = req.body;
+  
+  // Validate input
+  if (!officeStartTime || !officeEndTime || !lunchStartTime || !lunchEndTime) {
+    return {
+      success: false,
+      error: 'All office hours fields are required'
+    };
+  }
+
+  // Validate time format (HH:MM)
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  if (!timeRegex.test(officeStartTime) || !timeRegex.test(officeEndTime) || 
+      !timeRegex.test(lunchStartTime) || !timeRegex.test(lunchEndTime)) {
+    return {
+      success: false,
+      error: 'Times must be in HH:MM format'
+    };
+  }
+
+  return await settingsService.updateOfficeHours(
+    officeStartTime,
+    officeEndTime,
+    lunchStartTime,
+    lunchEndTime
+  );
 });

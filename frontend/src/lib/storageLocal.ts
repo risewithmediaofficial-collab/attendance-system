@@ -596,6 +596,7 @@ export const localStorageImpl = {
     if (task) {
       if (!task.comments) task.comments = [];
       const currentUser = this.getCurrentMember();
+      const currentRole = this.getCurrentRole();
       task.comments.push({
         id: generateId(),
         taskId,
@@ -605,6 +606,28 @@ export const localStorageImpl = {
       });
       task.updatedAt = Date.now();
       set("tasks", tasks);
+
+      if (currentUser && currentRole === "Admin") {
+        const targetMemberIds = (Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo]).filter(
+          (memberId) => memberId && memberId !== currentUser.id,
+        );
+
+        if (targetMemberIds.length > 0) {
+          const notifications = get<UserNotification[]>("userNotifications", []);
+          const preview = text.length > 120 ? `${text.slice(0, 117)}...` : text;
+
+          notifications.unshift({
+            id: generateId(),
+            title: `New comment on ${task.title}`,
+            message: `${currentUser.name} added a comment: ${preview}`,
+            targetMemberIds,
+            createdAt: Date.now(),
+            createdBy: currentUser.id,
+          });
+
+          set("userNotifications", notifications);
+        }
+      }
     }
   },
 

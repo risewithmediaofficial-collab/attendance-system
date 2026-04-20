@@ -47,7 +47,7 @@ export function QuickFilterChips({
               onClick={() => toggleFilter(filter.id)}
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                "border border-white/10 backdrop-blur-md",
+                "border border-neutral-200",
                 isSelected
                   ? "bg-white/20 border-white/30 text-white shadow-lg"
                   : "bg-white/5 text-muted-foreground hover:bg-white/10"

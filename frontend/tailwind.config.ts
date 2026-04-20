@@ -22,6 +22,12 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        brand: {
+          primary: "#4F6FAF",
+          secondary: "#6C8CFF",
+          light: "#EFF2FF",
+          dark: "#3F5F9F",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -105,10 +111,10 @@ export default {
         },
         "glow": {
           "0%, 100%": {
-            boxShadow: "0 0 20px rgba(100, 181, 246, 0.2)",
+            boxShadow: "0 0 20px rgba(91, 125, 200, 0.2)",
           },
           "50%": {
-            boxShadow: "0 0 40px rgba(100, 181, 246, 0.3)",
+            boxShadow: "0 0 40px rgba(91, 125, 200, 0.3)",
           },
         },
         "float": {
@@ -128,3 +134,4 @@ export default {
   },
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
+

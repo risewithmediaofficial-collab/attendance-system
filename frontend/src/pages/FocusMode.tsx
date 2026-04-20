@@ -58,7 +58,7 @@ export default function FocusMode() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/30 flex items-center justify-center">
         <div className="text-white text-lg">Loading...</div>
       </div>
     );
@@ -66,7 +66,7 @@ export default function FocusMode() {
 
   if (!task) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/30 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
           <h2 className="text-white/90 font-semibold mb-2">Task Not Found</h2>

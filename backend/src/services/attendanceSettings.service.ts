@@ -1,40 +1,30 @@
-import { ApiResponse } from '../types/index.js';
-import { AttendanceRecord, CompanySettings, Member, User } from '../models/enhancedModels.js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from "node:crypto";
+import { ApiResponse } from "../types/index.js";
+import { AttendanceRecord, CompanySettings, User } from "../models/enhancedModels.js";
+import { Member } from "../models.js";
+
+type AttendanceCalculationMode = "date-range" | "last-n-days";
+
+type CalculationWindow = {
+  calculationMode: AttendanceCalculationMode;
+  startDate: string;
+  endDate: string;
+  lastNDays: number;
+};
 
 export class AttendanceSettingsService {
-  
-  // Get current settings
   async getSettings(): Promise<ApiResponse> {
     try {
-      let settings = await CompanySettings.findOne().lean();
-      
-      if (!settings) {
-        // Create default settings if none exist
-        const defaultSettings = {
-          _id: `settings_${randomUUID()}`,
-          officeStartTime: '09:00',
-          officeEndTime: '18:00',
-          lateThreshold: 15,
-          halfDayThreshold: 4,
-          autoCheckoutTime: '18:30',
-          timezone: 'Asia/Kolkata',
-          weekendDays: ['Saturday', 'Sunday'],
-          attendanceCalculationMode: 'date-range',
-          lastNDays: 30,
-          presentDaysRequired: 1,
-          updatedAt: Date.now()
-        };
-        
-        await CompanySettings.create(defaultSettings);
-        settings = defaultSettings;
-      }
+      const settings = await this.getOrCreateSettings();
+      const calculationWindow = this.resolveCalculationWindow(settings);
 
       return {
         success: true,
         data: {
           officeStartTime: settings.officeStartTime,
           officeEndTime: settings.officeEndTime,
+          lunchStartTime: settings.lunchStartTime || "12:30",
+          lunchEndTime: settings.lunchEndTime || "13:30",
           lateThreshold: settings.lateThreshold,
           halfDayThreshold: settings.halfDayThreshold,
           autoCheckoutTime: settings.autoCheckoutTime,
@@ -42,52 +32,57 @@ export class AttendanceSettingsService {
           weekendDays: settings.weekendDays,
           attendancePercentageStartDate: settings.attendancePercentageStartDate,
           attendancePercentageEndDate: settings.attendancePercentageEndDate,
-          attendanceCalculationMode: settings.attendanceCalculationMode || 'date-range',
-          attendanceLastNDays: settings.attendanceLastNDays || 30,
+          attendanceCalculationMode: this.normalizeCalculationMode(settings.attendanceCalculationMode),
+          attendanceLastNDays: this.normalizeLastNDays(settings.attendanceLastNDays),
+          attendanceResolvedStartDate: calculationWindow?.startDate,
+          attendanceResolvedEndDate: calculationWindow?.endDate,
           presentDaysRequired: settings.presentDaysRequired || 1,
-          holidays: settings.holidays || []
-        }
+          holidays: settings.holidays || [],
+        },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch settings'
+        error: error instanceof Error ? error.message : "Failed to fetch settings",
       };
     }
   }
 
-  // Update date range settings
   async updateDateRangeSettings(
-    startDate: string,
-    endDate: string,
+    startDate?: string,
+    endDate?: string,
     calculationMode?: string,
     lastNDays?: number,
-    presentDaysRequired?: number
+    presentDaysRequired?: number,
   ): Promise<ApiResponse> {
     try {
-      let settings = await CompanySettings.findOne();
+      const settings = await this.getOrCreateSettingsDocument();
+      const normalizedMode = this.normalizeCalculationMode(calculationMode);
+      const normalizedLastNDays = this.normalizeLastNDays(lastNDays);
 
-      if (!settings) {
-        // Create new settings document
-        settings = new CompanySettings({
-          _id: `settings_${randomUUID()}`,
-          attendancePercentageStartDate: startDate,
-          attendancePercentageEndDate: endDate,
-          attendanceCalculationMode: calculationMode || 'date-range',
-          attendanceLastNDays: lastNDays || 30,
-          presentDaysRequired: presentDaysRequired || 1,
-          updatedAt: Date.now()
-        });
-      } else {
+      if (normalizedMode === "date-range") {
+        if (!startDate || !endDate) {
+          return {
+            success: false,
+            error: "Start date and end date are required for date range mode",
+          };
+        }
+
         settings.attendancePercentageStartDate = startDate;
         settings.attendancePercentageEndDate = endDate;
-        if (calculationMode) settings.attendanceCalculationMode = calculationMode;
-        if (lastNDays) settings.attendanceLastNDays = lastNDays;
-        if (presentDaysRequired) settings.presentDaysRequired = presentDaysRequired;
-        (settings as any).updatedAt = Date.now();
       }
 
+      settings.attendanceCalculationMode = normalizedMode as typeof settings.attendanceCalculationMode;
+      settings.attendanceLastNDays = normalizedLastNDays;
+
+      if (typeof presentDaysRequired === "number" && presentDaysRequired > 0) {
+        settings.presentDaysRequired = presentDaysRequired;
+      }
+
+      (settings as any).updatedAt = Date.now();
       await settings.save();
+
+      const calculationWindow = this.resolveCalculationWindow(settings.toObject());
 
       return {
         success: true,
@@ -96,95 +91,108 @@ export class AttendanceSettingsService {
           endDate: settings.attendancePercentageEndDate,
           calculationMode: settings.attendanceCalculationMode,
           lastNDays: settings.attendanceLastNDays,
-          presentDaysRequired: settings.presentDaysRequired
+          resolvedStartDate: calculationWindow?.startDate,
+          resolvedEndDate: calculationWindow?.endDate,
+          presentDaysRequired: settings.presentDaysRequired,
         },
-        message: 'Attendance date range settings updated successfully'
+        message: "Attendance settings updated successfully",
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to update settings'
+        error: error instanceof Error ? error.message : "Failed to update settings",
       };
     }
   }
 
-  // Calculate attendance percentage for a specific member
   async calculateAttendancePercentage(memberId: string): Promise<ApiResponse> {
     try {
-      const settings = await CompanySettings.findOne().lean();
-      
-      if (!settings || !settings.attendancePercentageStartDate || !settings.attendancePercentageEndDate) {
+      const settings = await this.getOrCreateSettings();
+      const calculationWindow = this.resolveCalculationWindow(settings);
+
+      if (!calculationWindow) {
         return {
           success: false,
-          error: 'Attendance date range not configured. Please set the date range in settings.'
+          error: "Attendance date range not configured. Please set the date range in settings.",
         };
       }
 
-      const startDate = settings.attendancePercentageStartDate;
-      const endDate = settings.attendancePercentageEndDate;
-
-      // Fetch attendance records within the date range
-      const attendanceRecords = await AttendanceRecord.find({
-        userId: memberId,
-        date: { $gte: startDate, $lte: endDate }
-      }).lean();
-
-      // Calculate missing dates (should mark as absent if not present and not holiday/weekend)
-      const allDatesInRange = this.getAllDatesBetween(startDate, endDate);
-      
-      // Count present days (Present, Late, Half-day all count as present)
-      const presentDays = attendanceRecords.filter(
-        record => record.status && ['Present', 'Late', 'Half-day'].includes(record.status)
-      ).length;
-
-      // Total working days (excluding weekends)
-      const totalWorkingDays = allDatesInRange.filter(
-        date => !this.isWeekend(date, settings.weekendDays || ['Saturday', 'Sunday'])
-      ).length;
-
-      const attendancePercentage = totalWorkingDays > 0 
-        ? ((presentDays / totalWorkingDays) * 100).toFixed(2)
-        : '0.00';
-
-      // Get member details
       const member = await Member.findById(memberId).lean();
+      if (!member) {
+        return {
+          success: false,
+          error: "Member not found",
+        };
+      }
+
+      const user = await User.findOne({ memberId }).lean();
+      const attendanceRecords = user
+        ? await AttendanceRecord.find({
+            userId: user._id,
+            date: {
+              $gte: calculationWindow.startDate,
+              $lte: calculationWindow.endDate,
+            },
+          }).lean()
+        : [];
+
+      const allDatesInRange = this.getAllDatesBetween(
+        calculationWindow.startDate,
+        calculationWindow.endDate,
+      );
+      const holidays = Array.isArray(settings.holidays) ? settings.holidays : [];
+      const weekendDays = Array.isArray(settings.weekendDays)
+        ? settings.weekendDays
+        : ["Saturday", "Sunday"];
+
+      const totalWorkingDays = allDatesInRange.filter(
+        (date) => !this.isWeekend(date, weekendDays) && !this.isHoliday(date, holidays),
+      ).length;
+
+      const presentDays = attendanceRecords.filter(
+        (record: any) => record.status && ["Present", "Late", "Half-day"].includes(record.status),
+      ).length;
+
+      const attendancePercentage = totalWorkingDays > 0
+        ? Number(((presentDays / totalWorkingDays) * 100).toFixed(2))
+        : 0;
 
       return {
         success: true,
         data: {
           memberId,
-          memberName: member?.name || 'Unknown',
-          startDate,
-          endDate,
+          memberName: member.name || "Unknown",
+          calculationMode: calculationWindow.calculationMode,
+          startDate: calculationWindow.startDate,
+          endDate: calculationWindow.endDate,
           presentDays,
           totalWorkingDays,
-          attendancePercentage: parseFloat(attendancePercentage),
-          status: this.getAttendanceStatus(parseFloat(attendancePercentage))
-        }
+          attendancePercentage,
+          status: this.getAttendanceStatus(attendancePercentage),
+        },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to calculate attendance percentage'
+        error: error instanceof Error ? error.message : "Failed to calculate attendance percentage",
       };
     }
   }
 
-  // Calculate attendance percentage for all members
   async calculateAllMembersAttendancePercentage(): Promise<ApiResponse> {
     try {
-      const settings = await CompanySettings.findOne().lean();
-      
-      if (!settings || !settings.attendancePercentageStartDate || !settings.attendancePercentageEndDate) {
+      const settings = await this.getOrCreateSettings();
+      const calculationWindow = this.resolveCalculationWindow(settings);
+
+      if (!calculationWindow) {
         return {
           success: false,
-          error: 'Attendance date range not configured. Please set the date range in settings.'
+          error: "Attendance date range not configured. Please set the date range in settings.",
         };
       }
 
-      // Get all members
       const members = await Member.find().lean();
-      const results = [];
+      const results: any[] = [];
 
       for (const member of members) {
         const percentageResult = await this.calculateAttendancePercentage(member._id);
@@ -193,29 +201,29 @@ export class AttendanceSettingsService {
         }
       }
 
-      // Sort by attendance percentage (descending)
       results.sort((a, b) => b.attendancePercentage - a.attendancePercentage);
 
       return {
         success: true,
         data: {
           dateRange: {
-            startDate: settings.attendancePercentageStartDate,
-            endDate: settings.attendancePercentageEndDate
+            calculationMode: calculationWindow.calculationMode,
+            startDate: calculationWindow.startDate,
+            endDate: calculationWindow.endDate,
+            lastNDays: calculationWindow.lastNDays,
           },
           members: results,
-          totalMembers: results.length
-        }
+          totalMembers: results.length,
+        },
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to calculate attendance for all members'
+        error: error instanceof Error ? error.message : "Failed to calculate attendance for all members",
       };
     }
   }
 
-  // Reset settings to default
   async resetSettings(): Promise<ApiResponse> {
     try {
       await CompanySettings.updateOne(
@@ -223,57 +231,205 @@ export class AttendanceSettingsService {
         {
           $unset: {
             attendancePercentageStartDate: 1,
-            attendancePercentageEndDate: 1
+            attendancePercentageEndDate: 1,
           },
           $set: {
-            attendanceCalculationMode: 'date-range',
+            attendanceCalculationMode: "date-range",
             attendanceLastNDays: 30,
             presentDaysRequired: 1,
-            updatedAt: Date.now()
-          }
+            updatedAt: Date.now(),
+          },
         },
-        { upsert: true }
+        { upsert: true },
       );
 
       return {
         success: true,
-        message: 'Settings reset to default'
+        message: "Settings reset to default",
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to reset settings'
+        error: error instanceof Error ? error.message : "Failed to reset settings",
       };
     }
   }
 
-  // Helper: Get all dates between two dates
+  async updateOfficeHours(
+    officeStartTime: string,
+    officeEndTime: string,
+    lunchStartTime: string,
+    lunchEndTime: string,
+  ): Promise<ApiResponse> {
+    try {
+      const settings = await this.getOrCreateSettingsDocument();
+
+      settings.officeStartTime = officeStartTime;
+      settings.officeEndTime = officeEndTime;
+      (settings as any).lunchStartTime = lunchStartTime;
+      (settings as any).lunchEndTime = lunchEndTime;
+      (settings as any).updatedAt = Date.now();
+
+      await settings.save();
+
+      return {
+        success: true,
+        data: {
+          officeStartTime: settings.officeStartTime,
+          officeEndTime: settings.officeEndTime,
+          lunchStartTime: (settings as any).lunchStartTime,
+          lunchEndTime: (settings as any).lunchEndTime,
+        },
+        message: "Office hours updated successfully",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update office hours",
+      };
+    }
+  }
+
+  private async getOrCreateSettings(): Promise<any> {
+    let settings = (await CompanySettings.findOne().lean()) as any | null;
+
+    if (!settings) {
+      await CompanySettings.create({
+        _id: `settings_${randomUUID()}`,
+        officeStartTime: "09:30",
+        officeEndTime: "16:30",
+        lunchStartTime: "12:30",
+        lunchEndTime: "13:30",
+        lateThreshold: 15,
+        halfDayThreshold: 4,
+        autoCheckoutTime: "16:45",
+        timezone: "Asia/Kolkata",
+        weekendDays: ["Saturday", "Sunday"],
+        attendanceCalculationMode: "date-range",
+        attendanceLastNDays: 30,
+        presentDaysRequired: 1,
+        holidays: [],
+        updatedAt: Date.now(),
+      });
+      settings = (await CompanySettings.findOne().lean()) as any | null;
+    }
+
+    if (!settings) {
+      throw new Error("Failed to initialize attendance settings");
+    }
+
+    return settings;
+  }
+
+  private async getOrCreateSettingsDocument(): Promise<any> {
+    let settings = await CompanySettings.findOne();
+
+    if (!settings) {
+      settings = new CompanySettings({
+        _id: `settings_${randomUUID()}`,
+        officeStartTime: "09:30",
+        officeEndTime: "16:30",
+        lunchStartTime: "12:30",
+        lunchEndTime: "13:30",
+        lateThreshold: 15,
+        halfDayThreshold: 4,
+        autoCheckoutTime: "16:45",
+        timezone: "Asia/Kolkata",
+        weekendDays: ["Saturday", "Sunday"],
+        attendanceCalculationMode: "date-range",
+        attendanceLastNDays: 30,
+        presentDaysRequired: 1,
+        holidays: [],
+        updatedAt: Date.now(),
+      });
+    }
+
+    return settings;
+  }
+
+  private resolveCalculationWindow(settings: any): CalculationWindow | null {
+    const calculationMode = this.normalizeCalculationMode(settings?.attendanceCalculationMode);
+    const lastNDays = this.normalizeLastNDays(settings?.attendanceLastNDays);
+
+    if (calculationMode === "last-n-days") {
+      const endDate = this.formatDate(new Date());
+      const start = this.parseDate(endDate);
+      start.setDate(start.getDate() - (lastNDays - 1));
+
+      return {
+        calculationMode,
+        startDate: this.formatDate(start),
+        endDate,
+        lastNDays,
+      };
+    }
+
+    if (!settings?.attendancePercentageStartDate || !settings?.attendancePercentageEndDate) {
+      return null;
+    }
+
+    return {
+      calculationMode,
+      startDate: settings.attendancePercentageStartDate,
+      endDate: settings.attendancePercentageEndDate,
+      lastNDays,
+    };
+  }
+
+  private normalizeCalculationMode(value?: string): AttendanceCalculationMode {
+    return value === "last-n-days" ? "last-n-days" : "date-range";
+  }
+
+  private normalizeLastNDays(value?: number): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return 30;
+    }
+
+    const normalized = Math.floor(value);
+    if (normalized < 1) return 1;
+    if (normalized > 365) return 365;
+    return normalized;
+  }
+
   private getAllDatesBetween(startDate: string, endDate: string): string[] {
     const dates: string[] = [];
-    const current = new Date(startDate);
-    const end = new Date(endDate);
+    const current = this.parseDate(startDate);
+    const end = this.parseDate(endDate);
 
     while (current <= end) {
-      dates.push(current.toISOString().split('T')[0]);
+      dates.push(this.formatDate(current));
       current.setDate(current.getDate() + 1);
     }
 
     return dates;
   }
 
-  // Helper: Check if date is weekend
   private isWeekend(dateStr: string, weekendDays: string[]): boolean {
-    const date = new Date(dateStr);
-    const dayName = date.toLocaleString('en-US', { weekday: 'long' });
+    const date = this.parseDate(dateStr);
+    const dayName = date.toLocaleString("en-US", { weekday: "long" });
     return weekendDays.includes(dayName);
   }
 
-  // Helper: Get status badge based on percentage
+  private isHoliday(dateStr: string, holidays: Array<{ date?: string }>): boolean {
+    return holidays.some((holiday) => holiday?.date === dateStr);
+  }
+
+  private parseDate(dateStr: string): Date {
+    return new Date(`${dateStr}T00:00:00`);
+  }
+
+  private formatDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
   private getAttendanceStatus(percentage: number): string {
-    if (percentage >= 90) return 'Excellent';
-    if (percentage >= 80) return 'Good';
-    if (percentage >= 70) return 'Average';
-    if (percentage >= 60) return 'Poor';
-    return 'Critical';
+    if (percentage >= 90) return "Excellent";
+    if (percentage >= 80) return "Good";
+    if (percentage >= 70) return "Average";
+    if (percentage >= 60) return "Poor";
+    return "Critical";
   }
 }

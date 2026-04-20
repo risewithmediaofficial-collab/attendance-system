@@ -1,6 +1,6 @@
 import { useEffect, useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, FileText, Home, Zap, Archive, Command } from "lucide-react";
+import { Search, FileText, Home, Zap, Command, ClipboardCheck, BarChart3, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -48,23 +48,12 @@ export const CommandPalette = memo(function CommandPaletteComponent() {
     },
     {
       id: "tasks",
-      label: "Go to Tasks",
-      description: "View all tasks and board",
+      label: "Open Tasks",
+      description: "Board and list views in one task workspace",
       icon: <FileText className="h-4 w-4" />,
       category: "Navigation",
       action: () => {
         navigate("/tasks");
-        setOpen(false);
-      },
-    },
-    {
-      id: "board",
-      label: "Go to Board",
-      description: "View Kanban board",
-      icon: <Archive className="h-4 w-4" />,
-      category: "Navigation",
-      action: () => {
-        navigate("/board");
         setOpen(false);
       },
     },
@@ -76,6 +65,39 @@ export const CommandPalette = memo(function CommandPaletteComponent() {
       category: "Navigation",
       action: () => {
         navigate("/manage-attendance");
+        setOpen(false);
+      },
+    },
+    {
+      id: "reports",
+      label: "Open Reports",
+      description: "View work reports and summaries",
+      icon: <BarChart3 className="h-4 w-4" />,
+      category: "Navigation",
+      action: () => {
+        navigate("/reports");
+        setOpen(false);
+      },
+    },
+    {
+      id: "reviews",
+      label: "Review Tasks",
+      description: "Approve or reject completed tasks",
+      icon: <ClipboardCheck className="h-4 w-4" />,
+      category: "Navigation",
+      action: () => {
+        navigate("/admin-review");
+        setOpen(false);
+      },
+    },
+    {
+      id: "members",
+      label: "Open Team",
+      description: "Manage members and team access",
+      icon: <Users className="h-4 w-4" />,
+      category: "Navigation",
+      action: () => {
+        navigate("/members");
         setOpen(false);
       },
     },
@@ -103,10 +125,13 @@ export const CommandPalette = memo(function CommandPaletteComponent() {
     },
   ];
 
-  const roleAwareCommands =
-    role === "Admin"
-      ? commands.filter((cmd) => cmd.id !== "mywork")
-      : commands.filter((cmd) => cmd.id !== "manage-attendance");
+  const roleAwareCommands = commands.filter((cmd) => {
+    if (role === "Admin") {
+      return cmd.id !== "mywork";
+    }
+
+    return !["manage-attendance", "reviews", "members"].includes(cmd.id);
+  });
 
   const filtered = roleAwareCommands.filter(
     (cmd) =>
@@ -162,7 +187,7 @@ export const CommandPalette = memo(function CommandPaletteComponent() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-black/30"
           />
         )}
       </AnimatePresence>
@@ -176,7 +201,7 @@ export const CommandPalette = memo(function CommandPaletteComponent() {
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             className="fixed top-[20%] left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl"
           >
-            <div className="rounded-2xl border border-white/20 bg-gradient-to-b from-white/10 to-white/5 shadow-2xl backdrop-blur-xl overflow-hidden">
+            <div className="rounded-lg border border-neutral-200 bg-white shadow-md overflow-hidden">
               {/* Search Input */}
               <div className="border-b border-white/10 p-4">
                 <div className="flex items-center gap-3">
