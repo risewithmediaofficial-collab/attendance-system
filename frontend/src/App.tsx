@@ -93,8 +93,12 @@ function AnimatedRoutes() {
 }
 
 const App = () => {
-  const [ready, setReady] = useState(!useApiBackend);
-  const [loggedIn, setLoggedIn] = useState(() => !useApiBackend && storage.isLoggedIn());
+  const hasStoredSession = useApiBackend && !!getToken();
+  const [ready, setReady] = useState(!hasStoredSession);
+  const [loggedIn, setLoggedIn] = useState(() => {
+    if (!useApiBackend) return storage.isLoggedIn();
+    return hasStoredSession;
+  });
   const [authPage, setAuthPage] = useState<"login" | "forgot" | "reset">("login");
   const [resetToken, setResetToken] = useState<string | undefined>();
 
@@ -112,7 +116,7 @@ const App = () => {
     if (!useApiBackend) return;
     let cancelled = false;
     (async () => {
-      if (getToken()) {
+      if (hasStoredSession) {
         try {
           await storage.hydrate();
           if (!cancelled) setLoggedIn(storage.isLoggedIn());
@@ -126,7 +130,7 @@ const App = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hasStoredSession]);
 
   const handleLogin = () => {
     setLoggedIn(true);
@@ -156,7 +160,7 @@ const App = () => {
       <TooltipProvider>
         <div className="min-h-screen flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm">Connecting to server…</p>
+          <p className="text-sm">Connecting to server...</p>
         </div>
       </TooltipProvider>
     );

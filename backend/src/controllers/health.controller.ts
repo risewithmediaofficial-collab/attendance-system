@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { databaseService } from '../services/database.service.js';
 
 // Lightweight health check - NO database queries
 export const healthCheck = (req: Request, res: Response) => {
@@ -43,22 +44,13 @@ export const ping = (req: Request, res: Response) => {
 // Database health check (separate from main health check)
 export const databaseHealthCheck = async (req: Request, res: Response) => {
   try {
-    // Import mongoose only when needed
-    const mongoose = await import('mongoose');
-    
-    const dbState = mongoose.connection.readyState;
-    const dbStatus: { [key: number]: string } = {
-      0: 'disconnected',
-      1: 'connected',
-      2: 'connecting',
-      3: 'disconnecting'
-    };
-    const status = dbStatus[dbState] || 'unknown';
+    const connectionStatus = databaseService.getConnectionStatus();
 
     res.status(200).json({
-      database: status,
+      database: connectionStatus.readyStateText,
       timestamp: new Date().toISOString(),
-      readyState: dbState
+      readyState: connectionStatus.readyState,
+      isConnected: connectionStatus.isConnected
     });
   } catch (error) {
     res.status(500).json({

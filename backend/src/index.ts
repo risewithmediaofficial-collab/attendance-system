@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { databaseService } from "./services/database.service.js";
 import { ServerWarmupService } from "./services/serverWarmup.service.js";
 import { SelfPingService } from "./services/selfPing.service.js";
+import { CronJobService } from "./services/cron.service.js";
 import { ensureDefaultUsers } from "./ensureDefaults.js";
 import { apiRouter } from "./routes.js";
 import { healthCheck, ping, databaseHealthCheck } from "./controllers/health.controller.js";
@@ -58,6 +59,10 @@ if (process.env.NODE_ENV === 'production') {
   selfPingService.startSelfPing();
 }
 
+// Start cron jobs service
+const cronJobService = new CronJobService();
+cronJobService.startAllJobs();
+
 const app = express();
 
 // CORS configuration for production
@@ -109,6 +114,74 @@ app.get("/health/self-ping", (_req, res) => {
   });
 });
 
+// Uptime monitoring dashboard endpoint
+app.get("/health/uptime", (_req, res) => {
+  const warmupStatus = warmupService.getWarmupStatus();
+  const selfPingStatus = selfPingService.getStatus();
+  const uptimeSeconds = process.uptime();
+  const uptimeDays = Math.floor(uptimeSeconds / 86400);
+  const uptimeHours = Math.floor((uptimeSeconds % 86400) / 3600);
+  const uptimeMinutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+  res.status(200).json({
+    service: "uptime-monitoring",
+    serverStatus: "online",
+    uptime: {
+      seconds: Math.round(uptimeSeconds),
+      formatted: `${uptimeDays}d ${uptimeHours}h ${uptimeMinutes}m`,
+      days: uptimeDays,
+      hours: uptimeHours,
+      minutes: uptimeMinutes
+    },
+    services: {
+      warmup: {
+        enabled: true,
+        lastRun: warmupStatus.lastWarmup,
+        nextRunIn: Math.round(warmupStatus.nextWarmupIn / 1000),
+        interval: "every 10 minutes"
+      },
+      selfPing: {
+        enabled: process.env.NODE_ENV === 'production',
+        status: selfPingStatus,
+        interval: "every 5 minutes"
+      },
+      cronJobs: {
+        enabled: true,
+        jobs: [
+          {
+            name: "Auto Checkout",
+            schedule: "6 PM daily (18:00)",
+            timezone: "Asia/Kolkata"
+          },
+          {
+            name: "Overdue Task Reminders",
+            schedule: "9 AM daily (09:00)",
+            timezone: "Asia/Kolkata"
+          },
+          {
+            name: "Clean Old Logs",
+            schedule: "2 AM every Sunday (02:00)",
+            timezone: "Asia/Kolkata"
+          },
+          {
+            name: "Daily Attendance Report",
+            schedule: "11 PM daily (23:00)",
+            timezone: "Asia/Kolkata"
+          }
+        ]
+      }
+    },
+    memory: {
+      heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
+      heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024 * 100) / 100,
+      external: Math.round(process.memoryUsage().external / 1024 / 1024 * 100) / 100,
+      unit: "MB"
+    },
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development"
+  });
+});
+
 // Root endpoint
 app.get("/", (_req, res) => {
   res.json({
@@ -120,19 +193,107 @@ app.get("/", (_req, res) => {
       ping: "/ping",
       database: "/health/database",
       selfPing: "/health/self-ping",
+      uptime: "/health/uptime",
+      cronJobs: "/health/cron-jobs",
       api: "/api",
       auth: "/api/auth/login"
     },
     performance: {
       warmupEnabled: true,
       selfPingEnabled: process.env.NODE_ENV === 'production',
+      cronJobsEnabled: true,
       connectionPooling: true,
       caching: true
     }
   });
 });
 
+// Cron jobs management endpoint
+app.get("/health/cron-jobs", (_req, res) => {
+  res.status(200).json({
+    service: "cron-jobs",
+    status: "running",
+    jobs: [
+      {
+        id: "autoCheckout",
+        name: "Auto Checkout",
+        schedule: "0 18 * * *",
+        scheduleDescription: "6 PM daily",
+        timezone: "Asia/Kolkata",
+        description: "Automatically checkout users at end of day"
+      },
+      {
+        id: "overdueReminders",
+        name: "Overdue Task Reminders",
+        schedule: "0 9 * * *",
+        scheduleDescription: "9 AM daily",
+        timezone: "Asia/Kolkata",
+        description: "Send reminders for overdue tasks"
+      },
+      {
+        id: "cleanupLogs",
+        name: "Clean Old Activity Logs",
+        schedule: "0 2 * * 0",
+        scheduleDescription: "2 AM every Sunday",
+        timezone: "Asia/Kolkata",
+        description: "Delete activity logs older than 90 days"
+      },
+      {
+        id: "dailyReport",
+        name: "Daily Attendance Report",
+        schedule: "0 23 * * *",
+        scheduleDescription: "11 PM daily",
+        timezone: "Asia/Kolkata",
+        description: "Generate daily attendance report"
+      }
+    ],
+    manualTrigger: {
+      description: "POST to /api/cron/run with jobName in body",
+      exampleJobNames: ["autoCheckout", "overdueReminders", "cleanupLogs", "dailyReport"]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use("/api", apiRouter());
+
+// Cron job manual trigger endpoint (for testing and admin operations)
+app.post("/api/cron/run", async (req, res) => {
+  try {
+    const { jobName } = req.body;
+    
+    if (!jobName) {
+      return res.status(400).json({
+        error: "Missing jobName",
+        validJobs: ["autoCheckout", "overdueReminders", "cleanupLogs", "dailyReport"]
+      });
+    }
+
+    const validJobs = ["autoCheckout", "overdueReminders", "cleanupLogs", "dailyReport"];
+    if (!validJobs.includes(jobName)) {
+      return res.status(400).json({
+        error: "Invalid jobName",
+        validJobs
+      });
+    }
+
+    console.log(`⚡ Manually triggering cron job: ${jobName}`);
+    await cronJobService.runJobManually(jobName);
+    
+    res.status(200).json({
+      success: true,
+      message: `Cron job '${jobName}' executed successfully`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error running cron job:", error);
+    res.status(500).json({
+      error: "Failed to run cron job",
+      message: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
