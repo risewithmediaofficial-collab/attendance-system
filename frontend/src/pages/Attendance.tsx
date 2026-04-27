@@ -85,11 +85,6 @@ export default function Attendance() {
 
   const [records, setRecords] = useState<AttendanceRecord[]>(attendance);
 
-  useEffect(() => {
-    if (role === "Admin") {
-      storage.setAttendance(records);
-    }
-  }, [records, role]);
 
   const today = toIsoDate(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(today);

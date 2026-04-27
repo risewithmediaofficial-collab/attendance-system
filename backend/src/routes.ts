@@ -756,35 +756,6 @@ export function apiRouter(): Router {
     res.json({ ok: true });
   });
 
-  r.put("/attendance", authMiddleware, requireAdmin, async (req, res) => {
-    if (!Array.isArray(req.body)) {
-      res.status(400).json({ error: "Expected array" });
-      return;
-    }
-    await AttendanceRecord.deleteMany({});
-    if (req.body.length > 0) {
-      await AttendanceRecord.insertMany(
-        (req.body as Record<string, unknown>[]).map((a) => ({
-          _id: String(a.id),
-          date: String(a.date),
-          memberId: String(a.memberId),
-          loginTime: String(a.loginTime),
-          logoutTime: String(a.logoutTime),
-          lunchStartTime: a.lunchStartTime ? String(a.lunchStartTime) : undefined,
-          lunchEndTime: a.lunchEndTime ? String(a.lunchEndTime) : undefined,
-          hours: Number(a.hours),
-          status: String(a.status),
-          approvalStatus: a.approvalStatus ? String(a.approvalStatus) : "Pending",
-          submittedAt: a.submittedAt ? Number(a.submittedAt) : undefined,
-          submittedBy: a.submittedBy ? String(a.submittedBy) : undefined,
-          approvedAt: a.approvedAt ? Number(a.approvedAt) : undefined,
-          approvedBy: a.approvedBy ? String(a.approvedBy) : undefined,
-          rejectionReason: a.rejectionReason ? String(a.rejectionReason) : undefined,
-        })),
-      );
-    }
-    res.json({ ok: true });
-  });
 
   r.put("/holidays", authMiddleware, requireAdmin, async (req, res) => {
     if (!Array.isArray(req.body)) {

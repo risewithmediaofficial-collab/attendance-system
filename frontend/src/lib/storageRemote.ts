@@ -190,9 +190,6 @@ export const remoteStorageImpl = {
   setAttendance: (a: AttendanceRecord[]) => {
     if (!cache) return;
     cache.attendance = a;
-    if (remoteStorageImpl.getCurrentRole() === "Admin") {
-      void putJson("/attendance", a);
-    }
   },
 
   getTasks: (): Task[] => cache?.tasks ?? [],
